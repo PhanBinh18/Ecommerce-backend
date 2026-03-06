@@ -19,19 +19,28 @@ public class ProductService {
     // API DÀNH CHO USER (KHÁCH HÀNG)
     // ==========================================
 
-    // Lấy danh sách phân trang, tìm kiếm và sắp xếp
+//    // Lấy danh sách phân trang, tìm kiếm và sắp xếp
+//    public Page<Product> getProducts(int page, int size, String sortBy, String keyword, String category) {
+//        // Tạo đối tượng phân trang & sắp xếp
+//        Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy).descending());
+//
+//        if (keyword != null && !keyword.isEmpty()) {
+//            return productRepository.findByNameContainingIgnoreCaseAndIsActiveTrue(keyword, pageable);
+//        }
+//        if (category != null && !category.isEmpty()) {
+//            return productRepository.findByCategoryAndIsActiveTrue(category, pageable);
+//        }
+//
+//        return productRepository.findAllByIsActiveTrue(pageable);
+//    }
+
+    // Lấy danh sách phân trang, tìm kiếm và lọc kết hợp
     public Page<Product> getProducts(int page, int size, String sortBy, String keyword, String category) {
         // Tạo đối tượng phân trang & sắp xếp
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy).descending());
 
-        if (keyword != null && !keyword.isEmpty()) {
-            return productRepository.findByNameContainingIgnoreCaseAndIsActiveTrue(keyword, pageable);
-        }
-        if (category != null && !category.isEmpty()) {
-            return productRepository.findByCategoryAndIsActiveTrue(category, pageable);
-        }
-
-        return productRepository.findAllByIsActiveTrue(pageable);
+        // Gọi thẳng vào hàm JPQL
+        return productRepository.searchAndFilterProducts(keyword, category, pageable);
     }
 
     // Lấy chi tiết sản phẩm (Dùng cho Cart và Order gọi sang)
