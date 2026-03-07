@@ -4,10 +4,17 @@
 -- (Quản lý hàng hóa và tồn kho chung 1 bảng)
 -- ==================================================
 CREATE TABLE products (
-                          id BIGINT AUTO_INCREMENT PRIMARY KEY, -- Dùng số tự tăng cho dễ quản lý
-                          name VARCHAR(255) NOT NULL,           -- Tên: "Iphone 15"
-                          price DECIMAL(15, 2) NOT NULL,        -- Giá: 20000000
-                          stock INT NOT NULL DEFAULT 0          -- Tồn kho: 10
+                          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                          name VARCHAR(255) NOT NULL,
+                          price DECIMAL(15,2) NOT NULL,
+                          stock INT NOT NULL DEFAULT 0,
+
+                          description TEXT,
+                          image_url VARCHAR(500),
+                          category VARCHAR(100),
+                          brand VARCHAR(100),
+
+                          is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- ==================================================
