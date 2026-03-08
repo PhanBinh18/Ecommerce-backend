@@ -15,6 +15,12 @@ public class Order {
     private Long id;
 
     private Long userId;
+
+    private String receiverName;    // Tên người nhận
+    private String phoneNumber;     // Số điện thoại
+    private String shippingAddress; // Địa chỉ giao hàng
+    private String paymentMethod;   // Phương thức thanh toán
+
     private BigDecimal totalPrice;
     private String status;
     private LocalDateTime createdAt = LocalDateTime.now();

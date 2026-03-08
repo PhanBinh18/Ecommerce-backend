@@ -11,8 +11,9 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
-    @PostMapping
-    public ResponseEntity<Order> createOrder(@RequestBody OrderRequest request) {
-        return ResponseEntity.ok(orderService.createOrder(request));
+    // Đổi tên đường dẫn thành /checkout
+    @PostMapping("/checkout")
+    public ResponseEntity<Order> checkout(@RequestBody CheckoutRequest request) {
+        return ResponseEntity.ok(orderService.checkout(request));
     }
 }
