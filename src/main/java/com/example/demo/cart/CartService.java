@@ -18,6 +18,9 @@ public class CartService {
     @Autowired
     private ProductService productService; // Giao tiếp liên module
 
+    @Autowired
+    private CartItemRepository cartItemRepository;
+
     // Lấy giỏ hàng (Nếu user chưa có thì tự động tạo giỏ trống)
     public Cart getCartByUserId(Long userId) {
         return cartRepository.findByUserId(userId)
@@ -67,5 +70,29 @@ public class CartService {
         Cart cart = getCartByUserId(userId);
         cart.getItems().clear(); // orphanRemoval sẽ tự lo việc xóa dưới DB
         cartRepository.save(cart);
+    }
+
+    // Hàm cập nhật số lượng
+    @Transactional
+    public Cart updateItemQuantity(Long itemId, int quantity) {
+        // Tìm chi tiết giỏ hàng theo ID
+        CartItem cartItem = cartItemRepository.findById(itemId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm này trong giỏ!"));
+
+        // Cập nhật số lượng mới
+        cartItem.setQuantity(quantity);
+        cartItemRepository.save(cartItem);
+
+        // Trả về lại toàn bộ Giỏ hàng (chứa số liệu mới nhất) để Frontend render lại
+        return cartItem.getCart();
+    }
+
+    // Hàm xóa 1 món đồ
+    @Transactional
+    public void removeItem(Long itemId) {
+        if (!cartItemRepository.existsById(itemId)) {
+            throw new RuntimeException("Không tìm thấy sản phẩm này trong giỏ!");
+        }
+        cartItemRepository.deleteById(itemId);
     }
 }
