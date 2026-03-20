@@ -77,4 +77,37 @@ public class OrderService {
 
         return savedOrder;
     }
+    @Transactional
+    public Order updateOrderStatus(Long orderId, String newStatus) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng!"));
+
+        String currentStatus = order.getStatus();
+        newStatus = newStatus.toUpperCase(); // Chuẩn hóa đầu vào
+
+        // 1. CHẶN ĐIỂM ĐÓNG BĂNG (Terminal States)
+        if (currentStatus.equals("DELIVERED") || currentStatus.equals("CANCELLED")) {
+            throw new RuntimeException("Đơn hàng đã ở trạng thái " + currentStatus + ", không thể thay đổi nữa!");
+        }
+
+        // 2. CHẶN ĐI LÙI (State Machine Validation)
+        if (currentStatus.equals("SHIPPING") && (newStatus.equals("PENDING") || newStatus.equals("PROCESSING"))) {
+            throw new RuntimeException("Hàng đang giao, không thể lùi trạng thái về " + newStatus);
+        }
+        if (currentStatus.equals("PROCESSING") && newStatus.equals("PENDING")) {
+            throw new RuntimeException("Đơn đã xử lý, không thể lùi về PENDING");
+        }
+
+        // 3. LOGIC HOÀN KHO (Chỉ xảy ra khi chuyển sang CANCELLED)
+        if (newStatus.equals("CANCELLED")) {
+            for (OrderItem item : order.getItems()) {
+                // Gọi sang ProductService để cộng trả lại kho
+                productService.increaseStock(item.getProductId(), item.getQuantity());
+            }
+        }
+
+        // 4. CẬP NHẬT & LƯU
+        order.setStatus(newStatus);
+        return orderRepository.save(order);
+    }
 }

@@ -112,6 +112,16 @@ public class ProductService {
         product.setStock(product.getStock() - quantity);
         return productRepository.save(product);
     }
+    // Hàm hoàn kho (Dành cho Order Service gọi khi hủy đơn)
+    @Transactional
+    public void increaseStock(Long productId, int quantity) {
+        // Dùng thẳng Repository để lấy được cả những sản phẩm đã bị ẩn (isActive = false)
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm để hoàn kho!"));
+
+        product.setStock(product.getStock() + quantity);
+        productRepository.save(product);
+    }
     // --- Xử lý Upload ảnh ---
     @Transactional
     public String uploadImage(Long productId, MultipartFile file) throws IOException {
