@@ -26,9 +26,9 @@ public class OrderService {
     private CartService cartService; // Gọi thêm CartService
 
     @Transactional
-    public Order checkout(CheckoutRequest request) {
-        // 1. Lấy giỏ hàng của user
-        CartDto cart = cartService.getCartByUserId(request.getUserId());
+    public Order checkout(Long userId, CheckoutRequest request) { // <-- 1. Thêm tham số Long userId
+        // 1. Lấy giỏ hàng của user bằng userId truyền vào
+        CartDto cart = cartService.getCartByUserId(userId); // <-- 2. Thay request.getUserId() thành userId
 
         if (cart.getItems() == null || cart.getItems().isEmpty()) {
             throw new RuntimeException("Giỏ hàng đang trống, không thể đặt hàng!");
@@ -36,32 +36,29 @@ public class OrderService {
 
         // 2. Khởi tạo Đơn hàng
         Order order = new Order();
-        order.setUserId(request.getUserId());
+        order.setUserId(userId); // <-- 3. Thay request.getUserId() thành userId
         order.setReceiverName(request.getReceiverName());
         order.setPhoneNumber(request.getPhoneNumber());
         order.setShippingAddress(request.getShippingAddress());
         order.setPaymentMethod(request.getPaymentMethod());
-        order.setStatus("PENDING"); // Đơn hàng mới luôn ở trạng thái Chờ xử lý
+        order.setStatus("PENDING");
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<OrderItem> orderItems = new ArrayList<>();
 
         // 3. Duyệt qua từng món trong Giỏ hàng
         for (CartItemDto cartItem : cart.getItems()) {
-            // productService.reduceStock() sẽ tự động check kho, trừ kho và trả về thông tin SP mới nhất
             Product product = productService.reduceStock(cartItem.getProductId(), cartItem.getQuantity());
 
-            // Tạo chi tiết đơn hàng (Lưu lại Snapshot giá cả)
             OrderItem orderItem = new OrderItem();
             orderItem.setProductId(product.getId());
             orderItem.setProductName(product.getName());
-            orderItem.setPrice(product.getPrice()); // Lưu giá trị thực tại thời điểm bấm thanh toán
+            orderItem.setPrice(product.getPrice());
             orderItem.setQuantity(cartItem.getQuantity());
             orderItem.setOrder(order);
 
             orderItems.add(orderItem);
 
-            // Cộng dồn tiền
             BigDecimal subTotal = product.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity()));
             totalAmount = totalAmount.add(subTotal);
         }
@@ -73,7 +70,7 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
 
         // 5. CỰC KỲ QUAN TRỌNG: Làm trống giỏ hàng sau khi mua xong
-        cartService.clearCart(request.getUserId());
+        cartService.clearCart(userId); // <-- 4. Thay request.getUserId() thành userId
 
         return savedOrder;
     }

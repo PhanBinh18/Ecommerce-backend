@@ -1,5 +1,6 @@
 package com.example.demo.order;
 
+import com.example.demo.identity.security.SecurityUtils; // <-- 1. Import bảo bối
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,10 +12,13 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
-    // Đổi tên đường dẫn thành /checkout
     @PostMapping("/checkout")
     public ResponseEntity<Order> checkout(@RequestBody CheckoutRequest request) {
-        return ResponseEntity.ok(orderService.checkout(request));
+        // 2. Tự động lấy ID người dùng từ Token
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+
+        // 3. Truyền ID xuống Service
+        return ResponseEntity.ok(orderService.checkout(currentUserId, request));
     }
     // --- API MỚI DÀNH CHO ADMIN ---
     // Ví dụ: PUT /api/orders/1/status?newStatus=SHIPPING
