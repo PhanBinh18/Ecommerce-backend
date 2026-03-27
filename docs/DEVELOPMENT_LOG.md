@@ -1,102 +1,93 @@
 # NHẬT KÝ PHÁT TRIỂN BACKEND
 **Dự án:** Hệ thống E-commerce thiết bị điện tử (Laptop, Màn hình, Bàn phím, Chuột)
 **Kiến trúc:** Modular Monolith (Hướng tới Microservices)
-**Giai đoạn:** 1 - Xây dựng Core Framework & Nghiệp vụ nền tảng
+**Giai đoạn:** 1 - Xây dựng Core Framework, Nghiệp vụ nền tảng & Bảo mật
 
 ---
 
 ## 1. Mục tiêu chức năng
-Xây dựng một hệ thống backend thương mại điện tử chuyên bán đồ điện tử. Mục tiêu cốt lõi là các module phải hoạt động hoàn toàn độc lập (Decoupled), giao tiếp với nhau qua Service Layer thay vì Database (No Foreign Key constraints giữa các bounded contexts), tạo tiền đề vững chắc để dễ dàng phân tách thành Microservices ở Giai đoạn 2.
+Xây dựng một hệ thống backend thương mại điện tử chuyên bán đồ điện tử. Mục tiêu cốt lõi là các module phải hoạt động hoàn toàn độc lập (Decoupled), giao tiếp với nhau qua Service Layer thay vì Database (No Foreign Key constraints giữa các bounded contexts), tạo tiền đề vững chắc để dễ dàng phân tách thành Microservices ở Giai đoạn 2. Hệ thống được bảo mật nghiêm ngặt bằng JWT chuẩn Stateless.
 
 ## 2. User flow / Luồng xử lý
-* **Luồng Admin (Quản trị viên):**
-  * Thêm mới sản phẩm -> Tải ảnh lên Cloudinary -> Trả về URL an toàn để lưu vào Database.
-  * Cập nhật thông tin, giá cả, số lượng tồn kho (stock).
-  * Xóa mềm (Soft Delete) các sản phẩm ngừng kinh doanh để không làm hỏng lịch sử đơn hàng.
-  * Xem danh sách sản phẩm sắp hết hàng để có kế hoạch nhập kho.
+* **Luồng Xác thực & Phân quyền (MỚI):**
+  * Đăng ký tài khoản (Mật khẩu được băm 1 chiều bằng BCrypt).
+  * Đăng nhập -> Hệ thống cấp phát thẻ thông hành JWT (chứa thông tin Email, Role và UserId).
+  * Các API nội bộ tự động trích xuất định danh người dùng từ JWT qua `SecurityContextHolder`, loại bỏ hoàn toàn việc tin tưởng `userId` từ phía Frontend.
+* **Luồng Admin (Quản trị viên - Yêu cầu Token `ROLE_ADMIN`):**
+  * Thêm, sửa, xóa (Soft Delete) sản phẩm -> Tải ảnh lên Cloudinary.
+  * Xem danh sách sản phẩm sắp hết hàng.
   * Cập nhật trạng thái đơn hàng (PENDING -> PROCESSING -> SHIPPING -> DELIVERED) và xử lý Hủy đơn (CANCELLED) kèm tự động hoàn kho.
-* **Luồng Khách hàng (User):**
-  * Đăng ký tài khoản hệ thống (hiện tại lưu plain-text, chuẩn bị tích hợp Security).
-  * Xem danh sách sản phẩm (có hỗ trợ phân trang).
-  * Tìm kiếm theo tên kết hợp **lọc theo Danh mục (Category), Hãng sản xuất (Brand) và Sắp xếp động (Sort)** bằng truy vấn động (Dynamic Query).
-  * Thêm sản phẩm vào Giỏ hàng (tự động cộng dồn số lượng nếu sản phẩm đã tồn tại trong giỏ). Dữ liệu trả về được làm giàu (enrich) đầy đủ thông tin sản phẩm.
-  * **Thanh toán (Checkout):** Hệ thống tự động lấy danh sách items từ Giỏ hàng -> Kiểm tra và trừ tồn kho thực tế -> Tạo Đơn hàng -> Xóa rỗng Giỏ hàng.
+* **Luồng Khách hàng (User - Yêu cầu Token `ROLE_USER` hoặc khách vãng lai):**
+  * Khách vãng lai: Xem danh sách sản phẩm, tìm kiếm, lọc theo Danh mục, Hãng và Sắp xếp động.
+  * Khách đã đăng nhập: Thêm sản phẩm vào Giỏ hàng của chính mình.
+  * **Thanh toán (Checkout):** Hệ thống tự động nhận diện User qua Token -> Lấy danh sách từ Giỏ hàng -> Trừ tồn kho -> Tạo Đơn hàng -> Xóa rỗng Giỏ hàng.
 
 ## 3. API liên quan
-**Module Identity:**
-* `POST /api/users/register`: Đăng ký tài khoản.
-* `GET /api/users/{id}`: Lấy thông tin tài khoản.
+**Module Identity (Đã bảo mật):**
+* `POST /api/auth/register`: Đăng ký tài khoản.
+* `POST /api/auth/login`: Đăng nhập, trả về chuỗi JWT.
 
 **Module Product:**
-* `GET /api/products`: Lấy danh sách (Params: `page`, `size`, `sortType`, `keyword`, `category`, `brand`).
-* `GET /api/products/{id}`: Xem chi tiết 1 sản phẩm (chỉ query các item có `isActive = true`).
-* `POST /api/products`: Tạo mới sản phẩm.
-* `PUT /api/products/{id}`: Cập nhật thông tin sản phẩm.
-* `DELETE /api/products/{id}`: Xóa mềm sản phẩm.
-* `POST /api/products/{id}/image`: Upload ảnh sản phẩm (nhận dữ liệu `multipart/form-data`).
-* `GET /api/products/low-stock`: Thống kê hàng sắp hết.
+* `GET /api/products`: Lấy danh sách (Mở cửa tự do).
+* `GET /api/products/{id}`: Xem chi tiết (Mở cửa tự do).
+* `POST, PUT, DELETE /api/products/**`: Quản lý sản phẩm (Bắt buộc Token có quyền `ROLE_ADMIN`).
+* `POST /api/products/{id}/image`: Upload ảnh sản phẩm (`ROLE_ADMIN`).
 
-**Module Cart:**
-* `GET /api/carts/{userId}`: Xem giỏ hàng của user (Trả về DTO).
-* `POST /api/carts/add`: Thêm vào giỏ / Cộng dồn số lượng (Trả về DTO).
-* `DELETE /api/carts/{userId}/clear`: Xóa trắng giỏ hàng sau khi checkout thành công.
+**Module Cart (Bảo mật IDOR - Xóa bỏ `userId` trên URL):**
+* `GET /api/carts/my-cart`: Xem giỏ hàng của bản thân (Tự lấy ID từ Token).
+* `POST /api/carts/add`: Thêm vào giỏ (Body chỉ cần `productId` và `quantity`).
+* `DELETE /api/carts/clear`: Xóa trắng giỏ hàng cá nhân.
 
 **Module Order:**
-* `POST /api/orders/checkout`: Thanh toán toàn bộ giỏ hàng và tạo đơn.
-* `PUT /api/orders/{id}/status`: Cập nhật trạng thái đơn hàng (Dành cho Admin), hỗ trợ tham số newStatus.
+* `POST /api/orders/checkout`: Thanh toán giỏ hàng (Tự lấy ID người đặt từ Token).
+* `PUT /api/orders/{id}/status`: Cập nhật trạng thái đơn hàng (Dành cho `ROLE_ADMIN`).
 
 ## 4. Các thành phần backend liên quan
-* **Cấu trúc thư mục:** Tổ chức theo Feature-based Packaging (`identity`, `product`, `cart`, `order`).
-* **Cấu hình (Config):** Các cấu hình ngoại vi như `CloudinaryConfig` được đặt tĩnh bên trong module `product` để đảm bảo tính đóng gói (Encapsulation), thuận tiện khi tách service.Riêng cấu hình CorsConfig được đặt ở tầng global để mở cổng giao tiếp (Cross-Origin) an toàn cho Frontend.
-* **Quản lý biến môi trường:** Sử dụng file `.env` kết hợp cấu hình `spring.config.import=optional:file:.env` hoặc Plugin IDE để bảo mật API Key của bên thứ 3.
-* **Database & ORM:** Sử dụng Spring Data JPA, Hibernate, MySQL chạy trên Docker. Cấu hình ép chuẩn UTF-8 từ Database đến Maven để tránh lỗi font chữ tiếng Việt.
+* **Cấu trúc thư mục:** Tổ chức theo Feature-based Packaging kết hợp Layered Architecture (`identity/security`, `identity/dto`, `cart/controller`...).
+* **Bảo mật (Security):** Tích hợp `Spring Security` và `io.jsonwebtoken`. Chạy chế độ `STATELESS` hoàn toàn.
+* **Cấu hình (Config):** `CloudinaryConfig`, `CorsConfig` (Global), `SecurityConfig` (Phân quyền endpoint & chặn CSRF), `ApplicationConfig` (Khai báo PasswordEncoder & UserDetailsService).
 
 ## 5. Logic xử lý chính
-* **Inter-module Communication:** Các module không gọi chéo Repository của nhau. Ví dụ: `OrderService` gọi `ProductService.reduceStock()` để xử lý kho. `OrderService` gọi `CartService.getCartEntity()` để lấy dữ liệu giỏ hàng.
-* **DTO Pattern (Data Transfer Object):** Tách biệt hoàn toàn Entity (quản lý bởi Hibernate) và API Response. Khắc phục triệt để lỗi mất dữ liệu (`null`) khi sử dụng các trường `@Transient` (ví dụ: bơm thông tin Product vào CartItem), đảm bảo API trả về JSON chuẩn xác 100%.
-* **Dynamic Query (JPQL):** Sử dụng kỹ thuật `(:keyword IS NULL OR ...)` để xử lý linh hoạt việc tìm kiếm, lọc theo nhiều tiêu chí (Category, Brand) trên cùng một method mà không cần viết các câu lệnh `if-else` dài dòng. Xử lý Sort động thông qua `Pageable`.
-* **Cloud Storage Integration:** Tích hợp SDK của Cloudinary để xử lý `MultipartFile`, trả về `secure_url` (HTTPS) thay vì lưu file vật lý trên server, giúp ứng dụng giữ trạng thái Stateless.
-* **Transaction Management:** Đóng gói luồng Checkout bằng `@Transactional`. Đảm bảo tính toàn vẹn ACID: Nếu bước tạo Đơn hàng thất bại, việc trừ kho bên Product và dọn giỏ bên Cart sẽ tự động Rollback.
-* **Order State Machine (Cỗ máy trạng thái):** Validate chặt chẽ luồng vòng đời đơn hàng. Chặn mọi thao tác "đi lùi" trạng thái (VD: SHIPPING về PENDING) và khóa cứng các đơn hàng ở trạng thái đóng băng (Terminal states: DELIVERED, CANCELLED).
-* **Inventory Rollback (Hoàn kho tự động):** Khi đơn hàng bị hủy (chuyển sang CANCELLED), OrderService tự động gọi ngược lại ProductService.increaseStock() để cộng trả lại số lượng hàng hóa vào DB, đảm bảo không bị thất thoát rác.
+* **JWT Authentication & Authorization (MỚI):** Request đi vào phải qua `JwtAuthenticationFilter`. Bộ lọc tự động kiểm tra chữ ký (Signature), tính hợp lệ và thời hạn. Nếu chuẩn xác, cấp quyền vào `SecurityContextHolder`.
+* **Zero-Trust Frontend (Chống IDOR):** Sử dụng `SecurityUtils.getCurrentUserId()` để tự động móc ID người dùng từ Token. Các API nhạy cảm (Giỏ hàng, Đặt hàng) không còn nhận `userId` từ Client, chặn đứng nguy cơ thao túng dữ liệu chéo.
+* **Inter-module Communication:** Các module không gọi chéo Repository của nhau. Liên kết qua Service Layer.
+* **DTO Pattern (Data Transfer Object):** Tách biệt hoàn toàn Entity và API Response, ẩn giấu các trường nhạy cảm (như mật khẩu) khi trả về JSON.
+* **Dynamic Query (JPQL):** Tìm kiếm, lọc và sắp xếp động trên một method duy nhất.
+* **Transaction Management & Order State Machine:** Đóng gói `@Transactional` để rollback dữ liệu nếu có lỗi. Chặn thao tác chuyển trạng thái đơn hàng sai logic, tự động hoàn kho khi hủy đơn.
 
 ## 6. Database / Entity liên quan
-Thiết kế theo triết lý No-Foreign-Key giữa các Bounded Contexts:
-* **`users`**: Quản lý thông tin xác thực và địa chỉ.
-* **`products`**: Quản lý hàng hóa, tồn kho (`stock`), link ảnh (`imageUrl`), cờ trạng thái (`isActive`).
-* **`carts` & `cart_items`**: Quản lý giỏ hàng. Dùng `orphanRemoval = true` để Hibernate tự dọn dẹp item mồ côi khi clear giỏ.
-* **`orders` & `order_items`**: Quản lý đơn hàng. Sử dụng kỹ thuật **Data Snapshot** (lưu cứng `price` và `productName` vào `order_items` tại thời điểm tạo đơn) để bảo toàn dữ liệu lịch sử doanh thu nếu giá sản phẩm gốc thay đổi.
+* **`users`**: Đã implement `UserDetails` của Spring Security. Mật khẩu được mã hóa BCrypt. Thêm cột `role` (Mặc định: `ROLE_USER`).
+* **`products`**: Quản lý hàng hóa, tồn kho, link ảnh, cờ trạng thái.
+* **`carts` & `cart_items`**: Quản lý giỏ hàng (`orphanRemoval = true`).
+* **`orders` & `order_items`**: Quản lý đơn hàng. Lưu Data Snapshot (lưu cứng giá cả vào thời điểm đặt) để bảo toàn lịch sử.
 
 ## 7. Đã hoàn thành
 - [x] Phân tích và thiết kế Database tối ưu cho phân tán (Microservices-ready).
 - [x] Setup môi trường MySQL bằng Docker Compose.
-- [x] Xây dựng Module Identity cơ bản.
 - [x] Xây dựng Module Product (CRUD, Tìm kiếm động, Phân trang, Xóa mềm).
 - [x] Tích hợp Cloudinary Upload Ảnh.
-- [x] Xây dựng Module Cart (Logic tính toán và cộng dồn item).
-- [x] Xây dựng Module Order & Luồng Checkout khép kín.
-- [x] Xây dựng **Order State Machine** (Chuyển đổi trạng thái đơn hàng: PENDING -> PROCESSING -> SHIPPING -> DELIVERED / CANCELLED).
-- [x] Logic Hoàn kho (Rollback Inventory) khi hủy đơn hàng.
-- [x] Cấu hình CORS Global để sẵn sàng kết nối với Frontend (React/Vue/HTML).
-- [x] **Áp dụng DTO Pattern cho Giỏ hàng (`CartDto`, `CartItemDto`) để fix triệt để lỗi mất dữ liệu do Hibernate Persistent State.**
-- [x] **Mở rộng bộ lọc Sản phẩm (Lọc theo Hãng - Brand) và Sắp xếp động (A-Z, Giá tăng/giảm).**
-- [x] **Cấu hình đồng bộ Encoding UTF-8 (Database URL, Maven) để sửa lỗi font tiếng Việt.**
+- [x] Cấu hình CORS Global & Đồng bộ Encoding UTF-8.
+- [x] Áp dụng DTO Pattern toàn dự án.
+- [x] **Tích hợp Spring Security & JWT Token (Chạy mô hình Stateless).**
+- [x] **Viết `JwtAuthenticationFilter` soi chiếu Token ở cửa ngõ API.**
+- [x] **Mã hóa mật khẩu bằng thuật toán BCrypt (`PasswordEncoder`).**
+- [x] **Xây dựng `SecurityUtils` và vá triệt để lỗ hổng IDOR cho toàn bộ module Cart và Order.**
 
 ## 8. Chưa hoàn thành
-- [ ] Bảo mật phân quyền: Tích hợp Spring Security & JWT Token.
+- [ ] Xây dựng Trạm xử lý lỗi tập trung (Global Exception Handler) để chuẩn hóa định dạng JSON trả về khi có lỗi (403, 400, 404...).
 - [ ] Tách ứng dụng thành Microservices & Tích hợp API Gateway, Service Discovery.
 - [ ] Hoàn thiện giao diện Frontend kết nối full API.
 
 ## 9. Ghi chú kỹ thuật
-* Đã xử lý triệt để lỗi đệ quy vô tận khi parse JSON bằng `@JsonIgnore` tại các Entity con (`OrderItem`, `CartItem`).
-* Tránh sử dụng trực tiếp Entity làm API Response nếu có trộn lẫn dữ liệu ngoại lai (`@Transient`). Sử dụng DTO là giải pháp tối ưu.
-* Chú ý bảo mật: File `.env` chứa credential của database và Cloudinary phải luôn nằm trong `.gitignore`.
-* Lịch sử Git được quản lý theo chuẩn Conventional Commits (ví dụ: `feat(order):...`, `refactor(cart):...`).
+* Tuyệt đối không lưu Session trong RAM server (`SessionCreationPolicy.STATELESS`) để sẵn sàng scale up bằng Docker.
+* JWT Token được cấu hình để nhét sẵn `userId` vào phần Payload (`extraClaims`), giúp tiết kiệm một nhịp query DB khi Controller cần lấy ID người dùng.
+* Lịch sử Git được quản lý theo chuẩn Conventional Commits.
 
 ## 10. File đã chỉnh sửa (Snapshot hiện tại)
-* **Gốc dự án:** `pom.xml`, `docker-compose.yml`, `.env`, `application.properties`, `.gitignore`.
-* **Package `identity`:** `User`, `UserRepository`, `UserService`, `UserController`.
-* **Package `product`:** `Product`, `ProductRepository`, `ProductService`, `ProductController`, `config/CloudinaryConfig`.
-* **Package `cart`:** `Cart`, `CartItem`, `CartDto`, `CartItemDto`, `CartRequest`, `CartRepository`, `CartService`, `CartController`.
-* **Package `order`:** `Order`, `OrderItem`, `CheckoutRequest`, `OrderRepository`, `OrderService`, `OrderController`.
-* **Package config:** CorsConfig (Xử lý lỗi CORS cho Frontend).
+* **Gốc dự án:** `pom.xml` (Thêm dependency jjwt, spring-security), `docker-compose.yml`, `.env`...
+* **Package `identity`:** * Cốt lõi: `User` (implements UserDetails), `UserRepository`, `UserService`.
+  * Security: `JwtService`, `JwtAuthenticationFilter`, `SecurityConfig`, `ApplicationConfig`, `SecurityUtils`.
+  * API & DTO: `AuthController`, `AuthService`, `LoginRequest`, `RegisterRequest`, `AuthResponse`.
+* **Package `product`:** `Product`, `ProductRepository`, `ProductService`, `ProductController`, `CloudinaryConfig`.
+* **Package `cart`:** Đã dọn dẹp URL và loại bỏ `userId` khỏi `CartRequest`. Các class: `Cart...`
+* **Package `order`:** Đã loại bỏ `userId` khỏi `CheckoutRequest`. Tự động gán user qua JWT. Các class: `Order...`
