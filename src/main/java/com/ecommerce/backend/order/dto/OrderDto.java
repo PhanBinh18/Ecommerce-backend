@@ -1,4 +1,4 @@
-package com.ecommerce.backend.order;
+package com.ecommerce.backend.order.dto;
 
 import lombok.Data;
 import java.math.BigDecimal;

@@ -1,10 +1,16 @@
-package com.ecommerce.backend.order;
+package com.ecommerce.backend.order.service;
 
 import com.ecommerce.backend.cart.dto.CartDto;
 import com.ecommerce.backend.cart.dto.CartItemDto;
 import com.ecommerce.backend.cart.service.CartService;
-import com.ecommerce.backend.product.Product;
-import com.ecommerce.backend.product.ProductService;
+import com.ecommerce.backend.order.dto.CheckoutRequest;
+import com.ecommerce.backend.order.dto.OrderDto;
+import com.ecommerce.backend.order.dto.OrderItemDto;
+import com.ecommerce.backend.order.entity.Order;
+import com.ecommerce.backend.order.entity.OrderItem;
+import com.ecommerce.backend.order.repository.OrderRepository;
+import com.ecommerce.backend.product.entity.Product;
+import com.ecommerce.backend.product.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

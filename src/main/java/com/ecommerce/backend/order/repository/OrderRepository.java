@@ -1,5 +1,6 @@
-package com.ecommerce.backend.order;
+package com.ecommerce.backend.order.repository;
 
+import com.ecommerce.backend.order.entity.Order;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

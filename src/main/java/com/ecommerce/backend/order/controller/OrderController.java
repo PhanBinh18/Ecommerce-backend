@@ -1,6 +1,10 @@
-package com.ecommerce.backend.order;
+package com.ecommerce.backend.order.controller;
 
 import com.ecommerce.backend.identity.security.SecurityUtils;
+import com.ecommerce.backend.order.dto.CheckoutRequest;
+import com.ecommerce.backend.order.entity.Order;
+import com.ecommerce.backend.order.dto.OrderDto;
+import com.ecommerce.backend.order.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

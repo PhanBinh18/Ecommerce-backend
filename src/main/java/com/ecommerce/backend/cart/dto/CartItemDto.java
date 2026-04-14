@@ -1,6 +1,6 @@
 package com.ecommerce.backend.cart.dto;
 
-import com.ecommerce.backend.product.Product;
+import com.ecommerce.backend.product.entity.Product;
 import lombok.Data;
 
 @Data

@@ -1,7 +1,9 @@
-package com.ecommerce.backend.product;
+package com.ecommerce.backend.product.service;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import com.ecommerce.backend.product.entity.Product;
+import com.ecommerce.backend.product.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;

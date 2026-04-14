@@ -1,5 +1,7 @@
-package com.ecommerce.backend.product;
+package com.ecommerce.backend.product.controller;
 
+import com.ecommerce.backend.product.service.ProductService;
+import com.ecommerce.backend.product.entity.Product;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
