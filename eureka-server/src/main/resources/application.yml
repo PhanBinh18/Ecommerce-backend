@@ -1,9 +1,9 @@
 server:
-  port: 8761 # Port m?c ??nh chu?n qu?c t? c?a Eureka
+  port: 8761
 
 eureka:
   client:
-    register-with-eureka: false # Báo cho nó bi?t: "Mày là server, ??ng t? ??ng ký chính mày"
-    fetch-registry: false       # Không c?n t?i danh b? t? ai khác vì nó ?ang gi? cu?n danh b? g?c
+    register-with-eureka: false # Bï¿½o cho nï¿½ bi?t: "Mï¿½y lï¿½ server, ??ng t? ??ng kï¿½ chï¿½nh mï¿½y"
+    fetch-registry: false       # Khï¿½ng c?n t?i danh b? t? ai khï¿½c vï¿½ nï¿½ ?ang gi? cu?n danh b? g?c
   server:
     wait-time-in-ms-when-sync-empty: 0
