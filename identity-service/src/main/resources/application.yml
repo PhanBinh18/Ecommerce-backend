@@ -1,0 +1,48 @@
+# =========================================================
+# 1. C?U HÌNH SERVER
+# =========================================================
+server:
+  port: 8081
+
+spring:
+  application:
+    name: identity-service
+
+  # =========================================================
+  # 2. K?T N?I DATABASE (Chú ý: C?ng 3307 và DB techstore_identity)
+  # =========================================================
+  datasource:
+    url: jdbc:mysql://localhost:3307/techstore_identity?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # =========================================================
+  # 3. C?U HÌNH JPA (T??ng tác Database)
+  # =========================================================
+  jpa:
+    hibernate:
+      # Dùng 'update' ?? Spring check l?i Entity. Vì ta ?ã có init.sql t?o b?ng r?i nên nó s? không xóa/t?o l?i b?y b?.
+      ddl-auto: update
+    show-sql: true # In ra console các câu l?nh SQL ?? d? debug
+    properties:
+      hibernate:
+        format_sql: true
+
+# =========================================================
+# 4. K?T N?I EUREKA (S? danh b?)
+# =========================================================
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# =========================================================
+# 5. C?U HÌNH B?O M?T JWT (Stateless)
+# =========================================================
+jwt:
+  # ?u tiên l?y bi?n môi tr??ng JWT_SECRET. N?u không có (ch?y local) thì dùng chu?i siêu dài m?c ??nh
+  secret: ${JWT_SECRET:DayLaMotChuoiBaoMatCucKyDaiVaPhucTapChoMoiTruongLocalDevCuaTechStoreIdentityService2026}
+  expiration: 86400000 # Th?i gian s?ng c?a Token: 1 ngày (tính b?ng milliseconds)
