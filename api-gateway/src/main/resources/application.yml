@@ -1,24 +1,17 @@
 server:
-  port: 8080 # C?ng duy nh?t mà Frontend s? g?i vào
+  port: 8080
 
 spring:
   application:
-    name: api-gateway # Tên hi?n th? trên b?ng ?i?u khi?n Eureka
-  cloud:
-    gateway:
-      discovery:
-        locator:
-          enabled: true # Cho phép Gateway t? ??ng tìm các service khác thông qua Eureka
-
-      # C?U HÌNH CÁC LU?NG ??NH TUY?N CHÍNH
-      routes:
-        - id: identity-service
-          # lb = Load Balancer. Nó s? h?i Eureka: "identity-service ?ang ? IP/Port nào?" r?i chuy?n ??n ?ó
-          uri: lb://IDENTITY-SERVICE
-          predicates:
-            - Path=/api/auth/**, /api/users/** # B?t k? request nào b?t ??u b?ng các path này s? b? ??y sang Identity Service
+    name: api-gateway
 
 eureka:
+  instance:
+    prefer-ip-address: true
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/ # Tr? v? t?ng ?ài Eureka
+      defaultZone: http://localhost:8761/eureka/
+
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE
