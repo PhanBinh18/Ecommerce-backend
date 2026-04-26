@@ -1,0 +1,21 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: techstore-db-container
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - techstore_db_data:/var/lib/mysql # Đổi tên volume để lưu data mới tinh
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  techstore_db_data:
