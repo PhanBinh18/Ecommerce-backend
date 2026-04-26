@@ -13,13 +13,15 @@ public class ApiGatewayApplication {
 		SpringApplication.run(ApiGatewayApplication.class, args);
 	}
 
-	// ĐÂY CHÍNH LÀ QUYỂN SỔ CHỈ ĐƯỜNG BẰNG CODE!
-	// Trình biên dịch sẽ bảo vệ nó, không sợ sai lề như YAML nữa.
 	@Bean
 	public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
 		return builder.routes()
 				.route("identity-service", r -> r.path("/api/auth/**", "/api/users/**")
 						.uri("lb://IDENTITY-SERVICE"))
+				.route("product-service", r -> r.path("/api/products/**")
+						.uri("lb://PRODUCT-SERVICE"))
+				.route("cart-service", r -> r.path("/api/carts/**")
+						.uri("lb://CART-SERVICE"))
 				.build();
 	}
 }
