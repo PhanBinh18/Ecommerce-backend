@@ -114,22 +114,23 @@ public class ProductService {
         return productRepository.findByStockLessThanAndIsActiveTrue(10);
     }
 
-    // Hàm quan trọng để Order Service gọi sang (Inter-service communication)
     @Transactional
     public Product reduceStock(Long productId, int quantity) {
-        Product product = getProductById(productId); // Đã có check isActive bên trong
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại!"));
+
         if (product.getStock() < quantity) {
-            throw new RuntimeException("Hết hàng: " + product.getName());
+            throw new RuntimeException("Sản phẩm " + product.getName() + " không đủ số lượng tồn kho!");
         }
+
         product.setStock(product.getStock() - quantity);
         return productRepository.save(product);
     }
-    // Hàm hoàn kho (Dành cho Order Service gọi khi hủy đơn)
+
     @Transactional
     public void increaseStock(Long productId, int quantity) {
-        // Dùng thẳng Repository để lấy được cả những sản phẩm đã bị ẩn (isActive = false)
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm để hoàn kho!"));
+                .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại!"));
 
         product.setStock(product.getStock() + quantity);
         productRepository.save(product);
@@ -154,4 +155,5 @@ public class ProductService {
 
         return imageUrl;
     }
+
 }

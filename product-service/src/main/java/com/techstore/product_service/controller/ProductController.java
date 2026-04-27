@@ -75,4 +75,22 @@ public class ProductController {
             return ResponseEntity.status(404).body(e.getMessage());
         }
     }
+
+    // MỞ CỔNG TRỪ KHO (Cho Order Service gọi khi Checkout)
+    @PutMapping("/{id}/reduce-stock")
+    public ResponseEntity<Product> reduceStock(
+            @PathVariable Long id,
+            @RequestParam int quantity) {
+        Product updatedProduct = productService.reduceStock(id, quantity);
+        return ResponseEntity.ok(updatedProduct);
+    }
+
+    // MỞ CỔNG HOÀN KHO (Cho Order Service gọi khi Hủy đơn)
+    @PutMapping("/{id}/increase-stock")
+    public ResponseEntity<Void> increaseStock(
+            @PathVariable Long id,
+            @RequestParam int quantity) {
+        productService.increaseStock(id, quantity);
+        return ResponseEntity.ok().build(); // Không cần trả về body, chỉ cần mã 200 OK
+    }
 }
