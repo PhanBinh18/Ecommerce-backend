@@ -1,6 +1,9 @@
 package com.techstore.order_service.config;
 
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.FanoutExchange;
+import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
@@ -32,5 +35,26 @@ public class RabbitMQConfig {
         RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
         rabbitTemplate.setMessageConverter(messageConverter());
         return rabbitTemplate;
+    }
+
+    public static final String REPLY_EXCHANGE_NAME = "inventory_reply_exchange";
+    public static final String ORDER_REPLY_QUEUE = "order_reply_queue";
+
+    // 1. Khai báo cái Loa phường mà Product dùng để báo cáo
+    @Bean
+    public FanoutExchange inventoryReplyExchange() {
+        return new FanoutExchange(REPLY_EXCHANGE_NAME);
+    }
+
+    // 2. Tạo Hòm thư cho Order để hứng kết quả
+    @Bean
+    public Queue orderReplyQueue() {
+        return new Queue(ORDER_REPLY_QUEUE, true);
+    }
+
+    // 3. Nối Hòm thư vào Loa phường
+    @Bean
+    public Binding bindingOrderReplyQueue(Queue orderReplyQueue, FanoutExchange inventoryReplyExchange) {
+        return BindingBuilder.bind(orderReplyQueue).to(inventoryReplyExchange);
     }
 }

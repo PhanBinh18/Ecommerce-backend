@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 
 @RestController
@@ -17,6 +18,18 @@ public class OrderController {
 
     @Autowired
     private OrderService orderService;
+
+    @GetMapping("/validate-cart")
+    public ResponseEntity<?> validateCartBeforeCheckout() {
+        try {
+            orderService.validateCartBeforeCheckout();
+            // Trả về true nếu kho vẫn đủ cho tất cả các món
+            return ResponseEntity.ok(Collections.singletonMap("valid", true));
+        } catch (Exception e) {
+            // Trả về HTTP 400 kèm câu thông báo lỗi chi tiết
+            return ResponseEntity.badRequest().body(Collections.singletonMap("error", e.getMessage()));
+        }
+    }
 
     @PostMapping("/checkout")
     public ResponseEntity<Order> checkout(@RequestBody CheckoutRequest request) {

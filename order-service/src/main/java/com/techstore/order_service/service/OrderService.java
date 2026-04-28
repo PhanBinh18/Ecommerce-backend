@@ -34,6 +34,33 @@ public class OrderService {
     @Autowired
     RabbitTemplate rabbitTemplate;
 
+    // =========================================================
+    // HÀM MỚI: KIỂM TRA TIỀN TRẠM TRƯỚC KHI VÀO TRANG CHECKOUT
+    // =========================================================
+    public void validateCartBeforeCheckout() {
+        // Lấy giỏ hàng của user hiện tại
+        CartDto cart = cartClient.getMyCart();
+
+        if (cart.getItems() == null || cart.getItems().isEmpty()) {
+            throw new RuntimeException("Giỏ hàng đang trống, không thể thanh toán!");
+        }
+
+        // Vòng lặp check kho y hệt như lúc tạo đơn
+        for (CartItemDto cartItem : cart.getItems()) {
+            ProductResponseDTO product;
+            try {
+                product = productClient.getProductById(cartItem.getProductId());
+            } catch (Exception e) {
+                throw new RuntimeException("Sản phẩm ID " + cartItem.getProductId() + " không tồn tại hoặc lỗi kết nối!");
+            }
+
+            // Nếu phát hiện 1 món không đủ hàng -> Báo lỗi ngay lập tức
+            if (product.getStock() < cartItem.getQuantity()) {
+                throw new RuntimeException("Sản phẩm '" + product.getName() + "' chỉ còn " + product.getStock() + " chiếc, không đủ số lượng!");
+            }
+        }
+    }
+
     @Transactional
     public Order checkout(Long userId, CheckoutRequest request) { // <-- 1. Thêm tham số Long userId
         // 1. Gọi điện sang Cart Service lấy giỏ hàng (Không cần truyền userId vì Token đã tự mang theo ID)
@@ -65,6 +92,10 @@ public class OrderService {
             } catch (Exception e) {
                 // Nếu Product sập hoặc ID không tồn tại, chặn luôn việc tạo đơn
                 throw new RuntimeException("Sản phẩm ID " + cartItem.getProductId() + " không tồn tại hoặc lỗi kết nối!");
+            }
+
+            if (product.getStock() < cartItem.getQuantity()) {
+                throw new RuntimeException("Sản phẩm '" + product.getName() + "' chỉ còn " + product.getStock() + " chiếc, không đủ số lượng bạn yêu cầu!");
             }
 
             // 2. TẠO CHI TIẾT ĐƠN HÀNG VỚI DỮ LIỆU THẬT
