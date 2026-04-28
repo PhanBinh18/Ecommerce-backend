@@ -116,15 +116,20 @@ public class ProductService {
 
     @Transactional
     public Product reduceStock(Long productId, int quantity) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại!"));
+        // 1. Thực hiện trừ kho trực tiếp dưới DB
+        int rowsAffected = productRepository.reduceStockAtomically(productId, quantity);
 
-        if (product.getStock() < quantity) {
-            throw new RuntimeException("Sản phẩm " + product.getName() + " không đủ số lượng tồn kho!");
+        // 2. Nếu số dòng bị tác động = 0, nghĩa là ID sai hoặc (quan trọng nhất) là KHÔNG ĐỦ HÀNG
+        if (rowsAffected == 0) {
+            // Kiểm tra xem do hết hàng hay do không tìm thấy sản phẩm
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại!"));
+
+            throw new RuntimeException("Sản phẩm " + product.getName() + " đã hết hàng hoặc không đủ số lượng!");
         }
 
-        product.setStock(product.getStock() - quantity);
-        return productRepository.save(product);
+        // 3. Nếu thành công, trả về thông tin sản phẩm sau khi đã trừ (để Order Service lấy giá/tên)
+        return productRepository.findById(productId).get();
     }
 
     @Transactional
