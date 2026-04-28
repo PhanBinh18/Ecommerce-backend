@@ -4,6 +4,8 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
@@ -15,7 +17,7 @@ public class RabbitMQConfig {
     public static final String EXCHANGE_NAME = "order_fanout_exchange";
     public static final String PRODUCT_QUEUE = "product_queue"; // Tên hòm thư của Product
 
-    // 1. Khai báo lại tên Loa Phường (để biết đường mà nối)
+    // 1. Khai báo lại tên (để biết đường mà nối)
     @Bean
     public FanoutExchange orderExchange() {
         return new FanoutExchange(EXCHANGE_NAME);
@@ -38,5 +40,21 @@ public class RabbitMQConfig {
     @Bean
     public MessageConverter messageConverter() {
         return new JacksonJsonMessageConverter();
+    }
+
+    // THÊM ĐOẠN NÀY ĐỂ ĐẢM BẢO TIN NHẮN GỬI ĐI CŨNG LÀ JSON
+    @Bean
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
+        rabbitTemplate.setMessageConverter(messageConverter());
+        return rabbitTemplate;
+    }
+
+    public static final String REPLY_EXCHANGE_NAME = "inventory_reply_exchange";
+
+    //  báo cáo kết quả về cho Order
+    @Bean
+    public FanoutExchange inventoryReplyExchange() {
+        return new FanoutExchange(REPLY_EXCHANGE_NAME);
     }
 }
