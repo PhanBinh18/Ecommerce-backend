@@ -3,7 +3,8 @@ package com.techstore.identity_service.dto;
 import lombok.Data;
 
 /**
- * Object hứng dữ liệu khi người dùng đăng ký tài khoản mới.
+ * Request payload when a user registers.
+ * Spec: email, password, fullName, phone
  */
 @Data
 public class RegisterRequest {
@@ -11,5 +12,4 @@ public class RegisterRequest {
     private String password;
     private String fullName;
     private String phone;
-    private String address;
 }
