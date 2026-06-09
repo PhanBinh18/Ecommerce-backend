@@ -1,18 +1,27 @@
 package com.techstore.identity_service.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
+/**
+ * users table
+ */
 @Entity
 @Table(name = "users")
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(exclude = {"roles", "addresses"})
+@ToString(exclude = {"roles", "addresses"})
 public class User implements UserDetails {
 
     @Id
@@ -26,49 +35,89 @@ public class User implements UserDetails {
     private String password;
 
     private String fullName;
+
     private String phone;
-    private String address;
-    private String role = "ROLE_USER";
+
+    /**
+     * Trạng thái active của account
+     */
     private boolean isActive = true;
-    private LocalDateTime createdAt = LocalDateTime.now();
 
-    // ========================================================
-    // CÁC HÀM TÍCH HỢP VỚI SPRING SECURITY (USERDETAILS)
-    // ========================================================
+    /**
+     * Thời điểm tạo user, dùng @CreationTimestamp để Hibernate set tự động
+     */
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 
-    // 1. Cấp quyền: Chuyển đổi biến 'role' thành đối tượng quyền mà Spring hiểu
+    /**
+     * Quan hệ users - roles (n-n)
+     */
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<Role> roles = new HashSet<>();
+
+    /**
+     * Quan hệ users - addresses (1-n)
+     */
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Address> addresses = new HashSet<>();
+
+    // ===========================
+    // UserDetails implementation
+    // ===========================
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority(role));
+        if (roles == null || roles.isEmpty()) return Collections.emptyList();
+        return roles.stream()
+                .map(role -> new SimpleGrantedAuthority(role.getName()))
+                .collect(Collectors.toList());
     }
 
-    // 2. Định nghĩa Username: Chúng ta dùng Email làm tài khoản đăng nhập
     @Override
     public String getUsername() {
         return email;
     }
 
-    // 3. Tài khoản có bị hết hạn không? (Mặc định true: không hết hạn)
+    // password getter already provided by Lombok
+
     @Override
     public boolean isAccountNonExpired() {
         return true;
     }
 
-    // 4. Tài khoản có bị khóa không? (Lấy theo cờ isActive của bạn)
+    /**
+     * Keep existing behavior: use isActive to indicate non-locked/enabled.
+     * You may separate isLocked and isActive if you want different semantics.
+     */
     @Override
     public boolean isAccountNonLocked() {
         return isActive;
     }
 
-    // 5. Mật khẩu có hết hạn không? (Mặc định true)
     @Override
     public boolean isCredentialsNonExpired() {
         return true;
     }
 
-    // 6. Tài khoản có đang được kích hoạt không?
     @Override
     public boolean isEnabled() {
         return isActive;
+    }
+
+    // Convenience helpers to manage bi-directional relation with Address
+    public void addAddress(Address address) {
+        address.setUser(this);
+        this.addresses.add(address);
+    }
+
+    public void removeAddress(Address address) {
+        address.setUser(null);
+        this.addresses.remove(address);
     }
 }
