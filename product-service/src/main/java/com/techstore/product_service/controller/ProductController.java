@@ -1,96 +1,135 @@
 package com.techstore.product_service.controller;
 
+import com.techstore.product_service.dto.*;
+import com.techstore.product_service.service.ProductImageService;
 import com.techstore.product_service.service.ProductService;
-import com.techstore.product_service.entity.Product;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/products")
+@RequiredArgsConstructor
+@RequestMapping("/api/v1")
 public class ProductController {
 
-    @Autowired
-    private ProductService productService;
+    private final ProductService productService;
+    private final ProductImageService productImageService;
 
-    // API Cho User: Phân trang, Tìm kiếm, Lọc
-    @GetMapping
-    public ResponseEntity<Page<Product>> getProducts(
+    // -----------------------
+    // Public endpoints
+    // -----------------------
+
+    @GetMapping("/products")
+    public ResponseEntity<ApiResponse<ProductPageResponse<ProductResponse>>> getProducts(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size, // Cập nhật size thành 12 cho đẹp với grid UI
-            @RequestParam(required = false) String sortType, // Đổi tên biến để khớp với logic mới
+            @RequestParam(defaultValue = "12") int size,
+            @RequestParam(required = false) String sortType,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String category,
-            @RequestParam(required = false) String brand) {  // Bổ sung tham số brand
+            @RequestParam(required = false) String brand) {
 
-        return ResponseEntity.ok(productService.getProducts(page, size, sortType, keyword, category, brand));
+        ProductPageResponse<ProductResponse> data = productService.getProducts(page, size, sortType, keyword, category, brand);
+        ApiResponse<ProductPageResponse<ProductResponse>> res = ApiResponse.<ProductPageResponse<ProductResponse>>builder()
+                .status("SUCCESS")
+                .message("Lấy danh sách sản phẩm thành công")
+                .data(data)
+                .timestamp(LocalDateTime.now())
+                .build();
+        return ResponseEntity.ok(res);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Product> getProductById(@PathVariable Long id) {
-        return ResponseEntity.ok(productService.getProductById(id));
+    @GetMapping("/products/{id}")
+    public ResponseEntity<ApiResponse<ProductDetailResponse>> getProductById(@PathVariable Long id) {
+        ProductDetailResponse data = productService.getProductById(id);
+        ApiResponse<ProductDetailResponse> res = ApiResponse.<ProductDetailResponse>builder()
+                .status("SUCCESS")
+                .message("Lấy chi tiết sản phẩm thành công")
+                .data(data)
+                .timestamp(LocalDateTime.now())
+                .build();
+        return ResponseEntity.ok(res);
     }
 
-    // API Cho Admin: Tạo mới
-    @PostMapping
-    public ResponseEntity<Product> createProduct(@RequestBody Product product) {
-        return ResponseEntity.ok(productService.createProduct(product));
+    // -----------------------
+    // Admin endpoints
+    // -----------------------
+    // Note: add security annotations later (e.g. @PreAuthorize)
+
+    @PostMapping("/admin/products")
+    public ResponseEntity<ApiResponse<ProductDetailResponse>> createProduct(@RequestBody ProductRequest request) {
+        ProductDetailResponse data = productService.createProduct(request);
+        ApiResponse<ProductDetailResponse> res = ApiResponse.<ProductDetailResponse>builder()
+                .status("SUCCESS")
+                .message("Tạo sản phẩm thành công")
+                .data(data)
+                .timestamp(LocalDateTime.now())
+                .build();
+        return ResponseEntity.ok(res);
     }
 
-    // API Cho Admin: Cập nhật
-    @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable Long id, @RequestBody Product product) {
-        return ResponseEntity.ok(productService.updateProduct(id, product));
+    @PutMapping("/admin/products/{id}")
+    public ResponseEntity<ApiResponse<ProductDetailResponse>> updateProduct(@PathVariable Long id, @RequestBody ProductRequest request) {
+        ProductDetailResponse data = productService.updateProduct(id, request);
+        ApiResponse<ProductDetailResponse> res = ApiResponse.<ProductDetailResponse>builder()
+                .status("SUCCESS")
+                .message("Cập nhật sản phẩm thành công")
+                .data(data)
+                .timestamp(LocalDateTime.now())
+                .build();
+        return ResponseEntity.ok(res);
     }
 
-    // API Cho Admin: Xóa mềm
-    @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteProduct(@PathVariable Long id) {
-        productService.softDeleteProduct(id);
-        return ResponseEntity.ok("Đã ẩn sản phẩm thành công!");
+    @DeleteMapping("/admin/products/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable Long id) {
+        productService.deleteProduct(id);
+        ApiResponse<Void> res = ApiResponse.<Void>builder()
+                .status("SUCCESS")
+                .message("Đã xóa mềm (soft delete) sản phẩm")
+                .data(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+        return ResponseEntity.ok(res);
     }
 
-    // API Cho Admin: Thống kê sắp hết hàng
-    @GetMapping("/low-stock")
-    public ResponseEntity<List<Product>> getLowStockProducts() {
-        return ResponseEntity.ok(productService.getLowStockProducts());
-    }
-
-    // API Cho Admin: Upload ảnh sản phẩm
-    @PostMapping("/{id}/image")
-    public ResponseEntity<String> uploadProductImage(
+    /**
+     * Upload images for a product (admin)
+     * Example: multipart/form-data, key "files" for multiple.
+     */
+    @PostMapping("/admin/products/{id}/images")
+    public ResponseEntity<ApiResponse<List<String>>> uploadProductImages(
             @PathVariable Long id,
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("files") List<MultipartFile> files) {
         try {
-            String imageUrl = productService.uploadImage(id, file);
-            return ResponseEntity.ok("Upload thành công! Link ảnh: " + imageUrl);
-        } catch (IOException e) {
-            return ResponseEntity.status(500).body("Lỗi khi upload ảnh: " + e.getMessage());
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(404).body(e.getMessage());
+            List<?> saved = productImageService.uploadImages(id, files);
+            // return list of URLs
+            List<String> urls = saved.stream().map(obj -> {
+                try {
+                    // ProductImage has getUrl()
+                    return (String) obj.getClass().getMethod("getUrl").invoke(obj);
+                } catch (Exception e) {
+                    return null;
+                }
+            }).filter(u -> u != null).toList();
+
+            ApiResponse<List<String>> res = ApiResponse.<List<String>>builder()
+                    .status("SUCCESS")
+                    .message("Upload ảnh thành công")
+                    .data(urls)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            ApiResponse<List<String>> res = ApiResponse.<List<String>>builder()
+                    .status("ERROR")
+                    .message("Lỗi khi upload ảnh: " + e.getMessage())
+                    .data(null)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            return ResponseEntity.status(500).body(res);
         }
-    }
-
-    // MỞ CỔNG TRỪ KHO (Cho Order Service gọi khi Checkout)
-    @PutMapping("/{id}/reduce-stock")
-    public ResponseEntity<Product> reduceStock(
-            @PathVariable Long id,
-            @RequestParam int quantity) {
-        Product updatedProduct = productService.reduceStock(id, quantity);
-        return ResponseEntity.ok(updatedProduct);
-    }
-
-    // MỞ CỔNG HOÀN KHO (Cho Order Service gọi khi Hủy đơn)
-    @PutMapping("/{id}/increase-stock")
-    public ResponseEntity<Void> increaseStock(
-            @PathVariable Long id,
-            @RequestParam int quantity) {
-        productService.increaseStock(id, quantity);
-        return ResponseEntity.ok().build(); // Không cần trả về body, chỉ cần mã 200 OK
     }
 }
