@@ -1,67 +1,111 @@
 package com.techstore.order_service.controller;
 
-import com.techstore.order_service.dto.CheckoutRequest;
-import com.techstore.order_service.dto.OrderDto;
-import com.techstore.order_service.entity.Order;
-import com.techstore.order_service.security.SecurityUtils;
+import com.techstore.order_service.dto.*;
 import com.techstore.order_service.service.OrderService;
+import com.techstore.order_service.security.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/orders")
+@RequestMapping("/api/v1/orders")
 public class OrderController {
 
     @Autowired
     private OrderService orderService;
 
-    @GetMapping("/validate-cart")
-    public ResponseEntity<?> validateCartBeforeCheckout() {
-        try {
-            orderService.validateCartBeforeCheckout();
-            // Trả về true nếu kho vẫn đủ cho tất cả các món
-            return ResponseEntity.ok(Collections.singletonMap("valid", true));
-        } catch (Exception e) {
-            // Trả về HTTP 400 kèm câu thông báo lỗi chi tiết
-            return ResponseEntity.badRequest().body(Collections.singletonMap("error", e.getMessage()));
-        }
-    }
-
+    // POST /api/v1/orders/checkout
     @PostMapping("/checkout")
-    public ResponseEntity<Order> checkout(@RequestBody CheckoutRequest request) {
-        // 2. Tự động lấy ID người dùng từ Token
-        Long currentUserId = SecurityUtils.getCurrentUserId();
-
-        // 3. Truyền ID xuống Service
-        return ResponseEntity.ok(orderService.checkout(currentUserId, request));
-    }
-    // --- API MỚI DÀNH CHO USER ---
-    @GetMapping("/my-orders")
-    public ResponseEntity<List<OrderDto>> getMyOrders() {
-        // 1. Tự động lấy ID người dùng từ Token (Bảo mật 100%, chống IDOR)
-        Long currentUserId = SecurityUtils.getCurrentUserId();
-
-        // 2. Lấy danh sách đơn hàng và trả về
-        List<OrderDto> myOrders = orderService.getMyOrders(currentUserId);
-        return ResponseEntity.ok(myOrders);
-    }
-    // --- API MỚI DÀNH CHO ADMIN ---
-    // Ví dụ: PUT /api/orders/1/status?newStatus=SHIPPING
-    @PutMapping("/{id}/status")
-    public ResponseEntity<?> updateOrderStatus(
-            @PathVariable Long id,
-            @RequestParam String newStatus) {
+    public ResponseEntity<ApiResponse<CheckoutResponse>> checkout(@RequestBody CheckoutRequest request) {
         try {
-            Order updatedOrder = orderService.updateOrderStatus(id, newStatus);
-            return ResponseEntity.ok(updatedOrder);
+            CheckoutResponse resp = orderService.checkout(request);
+            return ResponseEntity.ok(ApiResponse.<CheckoutResponse>builder()
+                    .status(200)
+                    .message("Checkout success")
+                    .data(resp)
+                    .build());
         } catch (RuntimeException e) {
-            // Trả về mã 400 Bad Request kèm thông báo lỗi thay vì sập server
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.<CheckoutResponse>builder()
+                    .status(400)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build());
         }
     }
 
+    // GET /api/v1/orders/history
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<java.util.List<OrderListResponse>>> getHistory() {
+        try {
+            Long currentUserId = SecurityUtils.getCurrentUserId();
+            java.util.List<OrderListResponse> list = orderService.getOrderHistory(currentUserId);
+            return ResponseEntity.ok(ApiResponse.<java.util.List<OrderListResponse>>builder()
+                    .status(200)
+                    .message("OK")
+                    .data(list)
+                    .build());
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(401).body(ApiResponse.<java.util.List<OrderListResponse>>builder()
+                    .status(401)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build());
+        }
+    }
+
+    // GET /api/v1/orders/history/{id}
+    @GetMapping("/history/{id}")
+    public ResponseEntity<ApiResponse<OrderDetailResponse>> getHistoryDetail(@PathVariable("id") Long id) {
+        try {
+            Long currentUserId = SecurityUtils.getCurrentUserId();
+            OrderDetailResponse detail = orderService.getOrderDetail(id, currentUserId);
+            return ResponseEntity.ok(ApiResponse.<OrderDetailResponse>builder()
+                    .status(200)
+                    .message("OK")
+                    .data(detail)
+                    .build());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.<OrderDetailResponse>builder()
+                    .status(400)
+                    .message(e.getMessage())
+                    .data(null)
+                    .build());
+        }
+    }
+
+    // GET /api/v1/orders/vnpay-ipn (public webhook)
+    @GetMapping("/vnpay-ipn")
+    public ResponseEntity<ApiResponse<Map<String, String>>> vnpayIpn(
+            @RequestParam(name = "vnp_Amount", required = false) String vnp_Amount,
+            @RequestParam(name = "vnp_OrderInfo", required = false) String vnp_OrderInfo,
+            @RequestParam(name = "vnp_ResponseCode", required = false) String vnp_ResponseCode,
+            @RequestParam(name = "vnp_SecureHash", required = false) String vnp_SecureHash,
+            @RequestParam(name = "vnp_TxnRef", required = false) String vnp_TxnRef
+    ) {
+        VNPayIPNRequest ipn = VNPayIPNRequest.builder()
+                .vnp_Amount(vnp_Amount)
+                .vnp_OrderInfo(vnp_OrderInfo)
+                .vnp_ResponseCode(vnp_ResponseCode)
+                .vnp_SecureHash(vnp_SecureHash)
+                .vnp_TxnRef(vnp_TxnRef)
+                .build();
+
+        try {
+            orderService.handleVNPayCallback(ipn);
+            // VNPay expects simple response; still wrap in ApiResponse
+            return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
+                    .status(200)
+                    .message("IPN processed")
+                    .data(Map.of("result", "OK"))
+                    .build());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.<Map<String, String>>builder()
+                    .status(400)
+                    .message(e.getMessage())
+                    .data(Map.of("result", "FAILED"))
+                    .build());
+        }
+    }
 }
