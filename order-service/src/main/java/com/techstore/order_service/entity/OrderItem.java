@@ -2,24 +2,40 @@ package com.techstore.order_service.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+
 import java.math.BigDecimal;
 
 @Entity
 @Table(name = "order_items")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class OrderItem {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    // Tránh đệ quy khi serialize
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")
-    @JsonIgnore // Ngắt đệ quy JSON vô tận
+    @JsonIgnore
     private Order order;
 
     private Long productId;
+
+    // Snapshot thông tin sản phẩm tại thời điểm mua
     private String productName;
+    private String productImage;
+
+    @Column(precision = 19, scale = 2)
     private BigDecimal price;
+
     private Integer quantity;
+
+    @Column(precision = 19, scale = 2)
+    private BigDecimal subTotal; // price * quantity (lưu cứng)
 }
