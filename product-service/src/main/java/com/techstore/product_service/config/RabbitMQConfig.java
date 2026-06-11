@@ -2,8 +2,8 @@ package com.techstore.product_service.config;
 
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
-import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
@@ -14,35 +14,73 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
-    public static final String EXCHANGE_NAME = "order_fanout_exchange";
-    public static final String PRODUCT_QUEUE = "product_queue"; // Tên hòm thư của Product
+    // ==========================================
+    // Main Order Exchange (Topic-based routing)
+    // ==========================================
+    public static final String ORDER_EXCHANGE_NAME = "order.exchange";
+    public static final String ORDER_CONFIRMED_ROUTING_KEY = "order.routing.confirmed";
+    public static final String ORDER_CANCELLED_ROUTING_KEY = "order.routing.cancelled";
 
-    // 1. Khai báo lại tên (để biết đường mà nối)
+    // ==========================================
+    // Queues for Product Service (Saga Pattern)
+    // ==========================================
+    public static final String PRODUCT_CONFIRMED_QUEUE = "product_confirmed_queue";
+    public static final String PRODUCT_CANCELLED_QUEUE = "product_cancelled_queue";
+
+    // ==========================================
+    // Reply Exchange (for responses back to Order Service)
+    // ==========================================
+    public static final String REPLY_EXCHANGE_NAME = "inventory_reply_exchange";
+
+    // ==========================================
+    // 1. Topic Exchange for routing by key
+    // ==========================================
     @Bean
-    public FanoutExchange orderExchange() {
-        return new FanoutExchange(EXCHANGE_NAME);
+    public TopicExchange orderExchange() {
+        return new TopicExchange(ORDER_EXCHANGE_NAME, true, false);
     }
 
-    // 2. Tạo Hòm thư riêng cho Product Service
+    // ==========================================
+    // 2. Queues for confirmed & cancelled orders
+    // ==========================================
     @Bean
-    public Queue productQueue() {
-        // Tham số 'true' nghĩa là hòm thư này bền vững (durable), tắt server bật lại không bị mất
-        return new Queue(PRODUCT_QUEUE, true);
+    public Queue productConfirmedQueue() {
+        return new Queue(PRODUCT_CONFIRMED_QUEUE, true); // durable = true
     }
 
-    // 3. Xây đường ống nối Hòm thư vào Loa phường
     @Bean
-    public Binding bindingProductQueue(Queue productQueue, FanoutExchange orderExchange) {
-        return BindingBuilder.bind(productQueue).to(orderExchange);
+    public Queue productCancelledQueue() {
+        return new Queue(PRODUCT_CANCELLED_QUEUE, true); // durable = true
     }
 
-    // 4. Bộ dịch thuật JSON (Nhận JSON biến thành Object Java)
+    // ==========================================
+    // 3. Bindings: attach queues to exchange with routing keys
+    // ==========================================
+    @Bean
+    public Binding bindingProductConfirmedQueue(Queue productConfirmedQueue, TopicExchange orderExchange) {
+        return BindingBuilder.bind(productConfirmedQueue)
+                .to(orderExchange)
+                .with(ORDER_CONFIRMED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding bindingProductCancelledQueue(Queue productCancelledQueue, TopicExchange orderExchange) {
+        return BindingBuilder.bind(productCancelledQueue)
+                .to(orderExchange)
+                .with(ORDER_CANCELLED_ROUTING_KEY);
+    }
+
+    // ==========================================
+    // 4. Message Converter (JSON)
+    // ==========================================
     @Bean
     public MessageConverter messageConverter() {
         return new JacksonJsonMessageConverter();
     }
 
-    // THÊM ĐOẠN NÀY ĐỂ ĐẢM BẢO TIN NHẮN GỬI ĐI CŨNG LÀ JSON
+    // ==========================================
+    // 5. RabbitTemplate (for sending replies)
+    // ==========================================
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
         RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
@@ -50,11 +88,11 @@ public class RabbitMQConfig {
         return rabbitTemplate;
     }
 
-    public static final String REPLY_EXCHANGE_NAME = "inventory_reply_exchange";
-
-    //  báo cáo kết quả về cho Order
+    // ==========================================
+    // 6. Reply Exchange (Fanout for responses)
+    // ==========================================
     @Bean
-    public FanoutExchange inventoryReplyExchange() {
-        return new FanoutExchange(REPLY_EXCHANGE_NAME);
+    public TopicExchange inventoryReplyExchange() {
+        return new TopicExchange(REPLY_EXCHANGE_NAME, true, false);
     }
 }
