@@ -11,5 +11,5 @@ import java.util.List;
 @NoArgsConstructor
 public class OrderConfirmedEvent {
     private Long orderId;
-    private List<OrderItemEvent> commitItems;
+    private List<OrderItemEvent> items;
 }

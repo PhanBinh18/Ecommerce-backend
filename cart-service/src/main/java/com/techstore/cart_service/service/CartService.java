@@ -1,9 +1,7 @@
 package com.techstore.cart_service.service;
 
-import com.techstore.cart_service.dto.CartDto;
-import com.techstore.cart_service.dto.CartItemDto;
-import com.techstore.cart_service.dto.CartRequest;
-import com.techstore.cart_service.dto.ProductResponseDTO;
+import com.techstore.cart_service.client.ProductClient;
+import com.techstore.cart_service.dto.*;
 import com.techstore.cart_service.entity.Cart;
 import com.techstore.cart_service.entity.CartItem;
 import com.techstore.cart_service.repository.CartItemRepository;
@@ -12,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,15 +22,18 @@ public class CartService {
     @Autowired
     private CartRepository cartRepository;
 
-    // 1. LẮP ĐIỆN THOẠI FEIGN VÀO
+    @Autowired
+    private CartItemRepository cartItemRepository;
+
     @Autowired
     private ProductClient productClient;
 
     @Autowired
-    private CartItemRepository cartItemRepository;
+    private GuestCartService guestCartService;
 
     // =================================================================
     // HÀM BỔ TRỢ: Chuyển đổi từ Cart (Entity) sang CartDto (Gửi về React)
+    // Sử dụng snapshot fields (không gọi Product Service)
     // =================================================================
     private CartDto mapToDto(Cart cart) {
         CartDto dto = new CartDto();
@@ -43,18 +45,12 @@ public class CartService {
         if (cart.getItems() != null) {
             for (CartItem item : cart.getItems()) {
                 CartItemDto itemDto = new CartItemDto();
-                itemDto.setId(item.getId());
                 itemDto.setProductId(item.getProductId());
+                itemDto.setProductName(item.getProductName());
+                itemDto.setThumbnailUrl(item.getThumbnailUrl());
+                itemDto.setPrice(item.getPrice());
                 itemDto.setQuantity(item.getQuantity());
-
-                try {
-                    // 2. GỌI ĐIỆN SANG PRODUCT-SERVICE QUA MẠNG LƯỚI
-                    ProductResponseDTO product = productClient.getProductById(item.getProductId());
-                    itemDto.setProduct(product);
-                } catch (Exception e) {
-                    // Feign sẽ ném Exception nếu Product sập hoặc SP bị xóa
-                    System.err.println("Không tìm thấy/Lỗi kết nối SP ID: " + item.getProductId());
-                }
+                itemDto.setSubTotal(item.getSubTotal());
                 itemDtos.add(itemDto);
             }
         }
@@ -78,36 +74,61 @@ public class CartService {
         return mapToDto(cart);
     }
 
+    // Giữ nguyên để không phá vỡ controller hiện tại (nếu controller vẫn gọi qua CartRequest)
     @Transactional
-    public CartDto addToCart(Long userId, CartRequest request) {
-        // 3. GỌI ĐIỆN CHECK TỒN KHO
-        // 1. Gọi mạng lấy thông tin (Chỉ bắt lỗi kết nối/404 ở đây)
-        ProductResponseDTO product;
+    public CartDto addToCart(Long userId, com.techstore.cart_service.dto.CartRequest request) {
+        return addToCart(userId, request.getProductId(), request.getQuantity());
+    }
+
+    /**
+     * Thêm sản phẩm vào giỏ MySQL của user, lưu snapshot từ Product Service.
+     */
+    @Transactional
+    public CartDto addToCart(Long userId, Long productId, int quantity) {
+        if (quantity <= 0) throw new IllegalArgumentException("Quantity must be > 0");
+
+        // gọi Product Service qua Feign để lấy chi tiết (ApiResponse<ProductDetailResponse>)
+        ApiResponse<ProductDetailResponse> productResp;
         try {
-            product = productClient.getProductById(request.getProductId());
+            productResp = productClient.getProductById(productId);
         } catch (Exception e) {
-            throw new RuntimeException("Sản phẩm không tồn tại hoặc Product Service đang lỗi!");
+            throw new RuntimeException("Không thể liên lạc Product Service hoặc sản phẩm không tồn tại", e);
         }
 
-        // 2. Logic kiểm tra nghiệp vụ (Để ở ngoài để không bị catch nhầm)
-        if (product.getStock() < request.getQuantity()) {
-            throw new RuntimeException("Vượt quá tồn kho! Chỉ còn " + product.getStock() + " sản phẩm.");
+        if (productResp == null || productResp.getData() == null) {
+            throw new RuntimeException("Sản phẩm không tồn tại hoặc Product Service trả về rỗng");
+        }
+
+        ProductDetailResponse product = productResp.getData();
+
+        if (product.getStockQuantity() == null || product.getStockQuantity() < quantity) {
+            throw new RuntimeException("Vượt quá tồn kho! Chỉ còn " + product.getStockQuantity() + " sản phẩm.");
         }
 
         Cart cart = getCartEntity(userId);
 
-        Optional<CartItem> existingItem = cart.getItems().stream()
-                .filter(item -> item.getProductId().equals(request.getProductId()))
+        Optional<CartItem> existingItemOpt = cart.getItems().stream()
+                .filter(item -> item.getProductId().equals(productId))
                 .findFirst();
 
-        if (existingItem.isPresent()) {
-            CartItem item = existingItem.get();
-            item.setQuantity(item.getQuantity() + request.getQuantity());
+        if (existingItemOpt.isPresent()) {
+            CartItem item = existingItemOpt.get();
+            int newQty = item.getQuantity() + quantity;
+            item.setQuantity(newQty);
+            // update snapshot price/name/thumbnail to latest product snapshot
+            item.setProductName(product.getName());
+            item.setThumbnailUrl(product.getThumbnail());
+            item.setPrice(product.getPrice());
+            item.setSubTotal(product.getPrice().multiply(BigDecimal.valueOf(newQty)));
         } else {
             CartItem newItem = new CartItem();
             newItem.setCart(cart);
-            newItem.setProductId(request.getProductId());
-            newItem.setQuantity(request.getQuantity());
+            newItem.setProductId(productId);
+            newItem.setQuantity(quantity);
+            newItem.setProductName(product.getName());
+            newItem.setThumbnailUrl(product.getThumbnail());
+            newItem.setPrice(product.getPrice());
+            newItem.setSubTotal(product.getPrice().multiply(BigDecimal.valueOf(quantity)));
             cart.getItems().add(newItem);
         }
 
@@ -117,19 +138,88 @@ public class CartService {
         return mapToDto(savedCart);
     }
 
+    /**
+     * Merge guest cart from Redis into user's MySQL cart, then clear guest cart.
+     */
     @Transactional
-    public void clearCart(Long userId) {
+    public void mergeGuestCartToUser(String guestUuid, Long userId) {
+        if (guestUuid == null || guestUuid.isEmpty()) return;
+
+        List<GuestCartItemDto> guestItems = guestCartService.getCart(guestUuid);
+        if (guestItems == null || guestItems.isEmpty()) {
+            // nothing to merge, but ensure guest key removed
+            guestCartService.clearCart(guestUuid);
+            return;
+        }
+
+        Cart cart = getCartEntity(userId);
+
+        for (GuestCartItemDto gItem : guestItems) {
+            Long productId = gItem.getProductId();
+            if (productId == null) continue;
+
+            Optional<CartItem> existingOpt = cart.getItems().stream()
+                    .filter(ci -> ci.getProductId().equals(productId))
+                    .findFirst();
+
+            if (existingOpt.isPresent()) {
+                CartItem existing = existingOpt.get();
+                int newQty = existing.getQuantity() + (gItem.getQuantity() == null ? 0 : gItem.getQuantity());
+                existing.setQuantity(newQty);
+                // update snapshot fields from guest item (guest snapshot should be used)
+                existing.setProductName(gItem.getProductName());
+                existing.setThumbnailUrl(gItem.getThumbnailUrl());
+                if (gItem.getPrice() != null) {
+                    existing.setPrice(gItem.getPrice());
+                }
+                if (existing.getPrice() != null) {
+                    existing.setSubTotal(existing.getPrice().multiply(BigDecimal.valueOf(newQty)));
+                }
+            } else {
+                CartItem newItem = new CartItem();
+                newItem.setCart(cart);
+                newItem.setProductId(productId);
+                newItem.setQuantity(gItem.getQuantity() == null ? 0 : gItem.getQuantity());
+                newItem.setProductName(gItem.getProductName());
+                newItem.setThumbnailUrl(gItem.getThumbnailUrl());
+                newItem.setPrice(gItem.getPrice());
+                if (gItem.getPrice() != null) {
+                    newItem.setSubTotal(gItem.getPrice().multiply(BigDecimal.valueOf(newItem.getQuantity())));
+                } else {
+                    newItem.setSubTotal(BigDecimal.ZERO);
+                }
+                cart.getItems().add(newItem);
+            }
+        }
+
+        cart.setUpdatedAt(LocalDateTime.now());
+        cartRepository.save(cart);
+
+        // clear the guest cart from Redis to free memory
+        guestCartService.clearCart(guestUuid);
+    }
+
+    /**
+     * Clear user cart (DB).
+     */
+    @Transactional
+    public void clearUserCart(Long userId) {
         Cart cart = getCartEntity(userId);
         cart.getItems().clear();
         cartRepository.save(cart);
     }
 
+    // Existing DB-based operations (kept for compatibility)
     @Transactional
     public CartDto updateItemQuantity(Long itemId, int quantity) {
         CartItem cartItem = cartItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm này trong giỏ!"));
 
         cartItem.setQuantity(quantity);
+        // recompute subTotal if price present
+        if (cartItem.getPrice() != null) {
+            cartItem.setSubTotal(cartItem.getPrice().multiply(BigDecimal.valueOf(quantity)));
+        }
         cartItemRepository.save(cartItem);
 
         return mapToDto(cartItem.getCart());
@@ -138,5 +228,10 @@ public class CartService {
     @Transactional
     public void removeItem(Long itemId) {
         cartItemRepository.deleteById(itemId);
+    }
+
+    @Transactional
+    public void clearCart(Long userId) {
+        clearUserCart(userId);
     }
 }

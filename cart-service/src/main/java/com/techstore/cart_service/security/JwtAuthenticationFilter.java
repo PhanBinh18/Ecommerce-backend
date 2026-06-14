@@ -1,29 +1,39 @@
 package com.techstore.cart_service.security;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList; // Tạm thời để quyền (Role) rỗng vì Cart chưa cần phân quyền phức tạp
+import java.security.Key;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtService jwtService;
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String USER_ID_CLAIM = "userId";
+    private static final String ROLES_CLAIM = "roles";
 
-    // ĐÃ XÓA UserDetailsService
-
-    public JwtAuthenticationFilter(JwtService jwtService) {
-        this.jwtService = jwtService;
-    }
+    @Value("${jwt.secret}")
+    private String secretKey;
 
     @Override
     protected void doFilterInternal(
@@ -31,33 +41,111 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
+        try {
+            final String authHeader = request.getHeader(AUTHORIZATION_HEADER);
 
-        final String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
+            if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            final String jwt = authHeader.substring(BEARER_PREFIX.length());
+
+            // Parse & validate JWT
+            Claims claims = parseJwt(jwt);
+            if (claims != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                // Extract userId from claims
+                Long userId = extractUserId(claims);
+                List<String> rolesList = extractRoles(claims);
+
+                if (userId != null) {
+                    // Convert roles to GrantedAuthority
+                    List<GrantedAuthority> authorities = rolesList.stream()
+                            .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                            .collect(Collectors.toList());
+
+                    // Create authentication token with userId as principal
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    userId,      // Principal = userId (Long)
+                                    null,        // Credentials = null (JWT is already verified)
+                                    authorities  // Authorities from token
+                            );
+
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            }
+        } catch (JwtException | IllegalArgumentException e) {
+            // Token invalid or malformed, log and continue (let controller decide if auth required)
+            logger.debug("JWT validation failed: " + e.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error during JWT authentication: " + e.getMessage());
         }
 
-        final String jwt = authHeader.substring(7);
+        filterChain.doFilter(request, response);
+    }
 
-        // Chỉ cần Token đúng chữ ký và còn hạn
-        if (jwtService.isTokenValid(jwt) && SecurityContextHolder.getContext().getAuthentication() == null) {
+    /**
+     * Parse JWT token using HS256 (HMAC with SHA-256).
+     * @param token JWT token (without "Bearer " prefix)
+     * @return Claims if valid, null if not valid
+     */
+    private Claims parseJwt(String token) {
+        try {
+            Key key = getSigningKey();
+            return Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new JwtException("JWT validation failed: " + e.getMessage());
+        }
+    }
 
-            // Moi userId ra khỏi Token
-            Long userId = jwtService.extractUserId(jwt);
-
-            if (userId != null) {
-                // Nhét thẳng userId vào làm "Principal" (Chủ thể), không cần Object User nữa
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userId, // Principal bây giờ chỉ là một con số Long
-                        null,
-                        new ArrayList<>() // Authorities (Roles) tạm để rỗng
-                );
-
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+    /**
+     * Extract userId from JWT claims.
+     * @param claims JWT claims
+     * @return userId or null if not found
+     */
+    private Long extractUserId(Claims claims) {
+        Object userIdObj = claims.get(USER_ID_CLAIM);
+        if (userIdObj instanceof Number) {
+            return ((Number) userIdObj).longValue();
+        } else if (userIdObj instanceof String) {
+            try {
+                return Long.parseLong((String) userIdObj);
+            } catch (NumberFormatException e) {
+                logger.warn("Could not parse userId claim as Long: " + userIdObj);
+                return null;
             }
         }
-        filterChain.doFilter(request, response);
+        return null;
+    }
+
+    /**
+     * Extract roles from JWT claims (expected to be List<String> or String).
+     * @param claims JWT claims
+     * @return List of role strings, or empty list if not found
+     */
+    @SuppressWarnings("unchecked")
+    private List<String> extractRoles(Claims claims) {
+        Object rolesObj = claims.get(ROLES_CLAIM);
+        if (rolesObj instanceof List) {
+            return (List<String>) rolesObj;
+        } else if (rolesObj instanceof String) {
+            return Collections.singletonList((String) rolesObj);
+        }
+        return Collections.emptyList();
+    }
+
+    /**
+     * Get signing key from secret (HS256 = HMAC SHA-256).
+     * @return Key for HMAC SHA-256
+     */
+    private Key getSigningKey() {
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 }

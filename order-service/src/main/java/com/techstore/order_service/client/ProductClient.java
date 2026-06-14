@@ -1,6 +1,8 @@
 package com.techstore.order_service.client;
 
 import com.techstore.order_service.config.FeignConfig;
+import com.techstore.order_service.dto.ApiResponse;
+import com.techstore.order_service.dto.ProductDetailResponse;
 import com.techstore.order_service.dto.ProductResponseDTO;
 import com.techstore.order_service.dto.ReservationRequest;
 import com.techstore.order_service.dto.ReservationResponse;
@@ -9,23 +11,26 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-// 2. Gọi sang Product Service
 @FeignClient(name = "product-service", configuration = FeignConfig.class)
 public interface ProductClient {
 
-    // gọi API lấy thông tin (ĐỌC)
-    @GetMapping("/api/products/{id}")
-    ProductResponseDTO getProductById(@PathVariable("id") Long id);
+    // Sửa URL (/api/v1/...) và bọc ApiResponse<ProductDetailResponse>
+    @GetMapping("/api/v1/products/{id}")
+    ApiResponse<ProductDetailResponse> getProductById(@PathVariable("id") Long id);
 
-    // Yêu cầu ProductService phải có API này
-    @PutMapping("/api/products/{id}/reduce-stock")
-    ProductResponseDTO reduceStock(@PathVariable("id") Long productId, @RequestParam("quantity") int quantity);
+    // Bọc ApiResponse
+    @PutMapping("/api/v1/products/{id}/reduce-stock")
+    ApiResponse<ProductResponseDTO> reduceStock(@PathVariable("id") Long productId, @RequestParam("quantity") int quantity);
 
-    // Yêu cầu ProductService phải có API này
-    @PutMapping("/api/products/{id}/increase-stock")
-    void increaseStock(@PathVariable("id") Long productId, @RequestParam("quantity") int quantity);
+    // Chuyển void thành ApiResponse<Void>
+    @PutMapping("/api/v1/products/{id}/increase-stock")
+    ApiResponse<Void> increaseStock(@PathVariable("id") Long productId, @RequestParam("quantity") int quantity);
 
-    // Mới: Reserve stock (internal API)
+    // Đã chuẩn xác từ trước
     @PostMapping("/api/v1/internal/products/reserve")
-    List<ReservationResponse> reserveStock(@RequestBody List<ReservationRequest> requests);
+    ApiResponse<List<ReservationResponse>> reserveStock(@RequestBody List<ReservationRequest> requests);
+
+    // Khai báo sẵn API nhả kho (Release) cho luồng Saga - RabbitMQ
+    @PutMapping("/api/v1/internal/products/release-reservation")
+    ApiResponse<Object> releaseReservation(@RequestBody List<ReservationRequest> requests);
 }

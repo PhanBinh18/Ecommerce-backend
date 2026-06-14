@@ -24,11 +24,10 @@ public class OrderExpiryListener {
         Long orderId = event.getOrderId();
         log.info("Received OrderExpiryEvent for orderId={}", orderId);
         try {
-            // Attempt to cancel order due to timeout
-            orderService.cancelOrder(orderId, "TIMEOUT");
+            // Truyền null cho tham số currentUserId để đánh dấu là Hệ thống tự hủy
+            orderService.cancelOrder(orderId, null, "TIMEOUT");
             log.info("Successfully cancelled expired order {}", orderId);
         } catch (Exception e) {
-            // Log and swallow to avoid message being requeued indefinitely
             log.error("Failed to cancel expired order {}: {}", orderId, e.getMessage(), e);
         }
     }

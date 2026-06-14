@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class ApiResponse<T> {
-    private int status;
+    private String status;
     private String message;
     private T data;
 

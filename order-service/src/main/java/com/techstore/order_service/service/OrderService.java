@@ -47,7 +47,10 @@ public class OrderService {
         Long currentUserId = com.techstore.order_service.security.SecurityUtils.getCurrentUserId();
         log.info("User {} starts checkout with paymentMethod={}", currentUserId, request.getPaymentMethod());
 
-        CartDto cart = cartClient.getMyCart();
+        // CHUẨN HÓA 1: Bóc hộp CartResponse thay vì dùng CartDto
+        ApiResponse<CartResponse> cartRes = cartClient.getMyCart();
+        CartResponse cart = (cartRes != null) ? cartRes.getData() : null;
+
         if (cart == null || cart.getItems() == null || cart.getItems().isEmpty()) {
             log.warn("Checkout failed: cart empty for user {}", currentUserId);
             throw new RuntimeException("Giỏ hàng đang trống, không thể đặt hàng!");
@@ -64,7 +67,8 @@ public class OrderService {
         // Call reserveStock
         List<ReservationResponse> reservationResponses;
         try {
-            reservationResponses = productClient.reserveStock(reservations);
+            ApiResponse<List<ReservationResponse>> apiResponse = productClient.reserveStock(reservations);
+            reservationResponses = apiResponse.getData();
             log.info("Received reservation responses: {}", reservationResponses);
         } catch (Exception e) {
             log.error("Error calling ProductService.reserveStock: {}", e.getMessage(), e);
@@ -94,14 +98,18 @@ public class OrderService {
 
         BigDecimal total = BigDecimal.ZERO;
         List<OrderItem> orderItems = new ArrayList<>();
+
         for (CartItemDto cartItem : cart.getItems()) {
-            ProductResponseDTO product = productClient.getProductById(cartItem.getProductId());
+            // CHUẨN HÓA 2: Bóc hộp ProductDetailResponse
+            ApiResponse<ProductDetailResponse> productApiRes = productClient.getProductById(cartItem.getProductId());
+            ProductDetailResponse product = (productApiRes != null) ? productApiRes.getData() : null;
 
             OrderItem item = OrderItem.builder()
                     .order(order)
                     .productId(cartItem.getProductId())
                     .productName(product != null ? product.getName() : null)
-                    .productImage(null)
+                    // CHUẨN HÓA 3: Lấy ảnh Thumbnail từ ProductDetailResponse
+                    .productImage(product != null ? product.getThumbnailUrl() : null)
                     .price(product != null ? product.getPrice() : BigDecimal.ZERO)
                     .quantity(cartItem.getQuantity())
                     .subTotal((product != null ? product.getPrice() : BigDecimal.ZERO)
@@ -120,31 +128,35 @@ public class OrderService {
         Order saved = orderRepository.save(order);
         log.info("Saved order {} (id={}) for user {}", saved.getOrderCode(), saved.getId(), currentUserId);
 
+        // --- FIX: Reload lại đơn hàng từ DB để đảm bảo lấy đủ danh sách items ---
+        Order orderForEvent = orderRepository.findById(saved.getId())
+                .orElse(saved);
+
         // If VNPay, publish expiry event to expiry exchange (TTL queue)
         if ("VNPAY".equalsIgnoreCase(request.getPaymentMethod())) {
-            OrderExpiryEvent expiryEvent = new OrderExpiryEvent(saved.getId());
+            OrderExpiryEvent expiryEvent = new OrderExpiryEvent(orderForEvent.getId());
             rabbitTemplate.convertAndSend(RabbitMQConfig.ORDER_EXPIRY_EXCHANGE,
                     RabbitMQConfig.ORDER_EXPIRY_ROUTING_KEY,
                     expiryEvent);
             log.info("Published OrderExpiryEvent for orderId={} to exchange={} routingKey={}",
-                    saved.getId(), RabbitMQConfig.ORDER_EXPIRY_EXCHANGE, RabbitMQConfig.ORDER_EXPIRY_ROUTING_KEY);
+                    orderForEvent.getId(), RabbitMQConfig.ORDER_EXPIRY_EXCHANGE, RabbitMQConfig.ORDER_EXPIRY_ROUTING_KEY);
         } else {
             // For COD/other immediate methods, best-effort clear cart and publish confirmed event
             try {
-                cartClient.clearCartInternal();
-                log.info("Cleared cart for user {} after COD order {}", currentUserId, saved.getId());
+                cartClient.clearCartInternal(currentUserId);
+                log.info("Cleared cart for user {} after COD order {}", currentUserId, orderForEvent.getId());
             } catch (Exception e) {
                 log.warn("Failed to clear cart after COD for user {}: {}", currentUserId, e.getMessage());
             }
-            List<OrderItemEvent> commitItems = saved.getItems().stream()
+            List<OrderItemEvent> commitItems = orderForEvent.getItems().stream()
                     .map(i -> new OrderItemEvent(i.getProductId(), i.getQuantity()))
                     .collect(Collectors.toList());
-            OrderConfirmedEvent confirmedEvent = new OrderConfirmedEvent(saved.getId(), commitItems);
+            OrderConfirmedEvent confirmedEvent = new OrderConfirmedEvent(orderForEvent.getId(), commitItems);
             rabbitTemplate.convertAndSend(RabbitMQConfig.ORDER_EXCHANGE_NAME,
                     RabbitMQConfig.ROUTING_KEY_CONFIRMED,
                     confirmedEvent);
             log.info("Published OrderConfirmedEvent for orderId={} with {} items",
-                    saved.getId(), commitItems.size());
+                    orderForEvent.getId(), commitItems.size());
         }
 
         String paymentUrl = null;
@@ -175,7 +187,7 @@ public class OrderService {
 
         // clear cart best-effort
         try {
-            cartClient.clearCartInternal();
+            cartClient.clearCartInternal(order.getUserId());
             log.info("Cleared cart after confirming order {}", orderId);
         } catch (Exception e) {
             log.warn("Failed to clear cart after confirming order {}: {}", orderId, e.getMessage());
@@ -197,33 +209,34 @@ public class OrderService {
     }
 
     // -------------------------
-    // Cancel order with reason
+    // Cancel order with reason (Saga Pattern)
     // -------------------------
     @Transactional
-    public Order cancelOrder(Long orderId, String reason) {
-        log.info("Cancelling order {} with reason={}", orderId, reason);
+    public Order cancelOrder(Long orderId, Long currentUserId, String reason) {
+        log.info("User {} is cancelling order {} with reason={}", currentUserId, orderId, reason);
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng id=" + orderId));
 
-        // restore stock
-        if (order.getItems() != null) {
-            for (OrderItem item : order.getItems()) {
-                try {
-                    productClient.increaseStock(item.getProductId(), item.getQuantity());
-                    log.info("Increased stock for product {} qty={} due to cancel of order {}",
-                            item.getProductId(), item.getQuantity(), orderId);
-                } catch (Exception e) {
-                    log.error("Error increasing stock for product {}: {}", item.getProductId(), e.getMessage(), e);
-                    throw new RuntimeException("Lỗi khi hoàn kho sản phẩm " + item.getProductId(), e);
-                }
-            }
+        // 1. Kiểm tra quyền sở hữu đơn hàng
+        if (currentUserId != null && !order.getUserId().equals(currentUserId)) {
+            throw new RuntimeException("Bạn không có quyền hủy đơn hàng này!");
         }
 
+        // 2. Chặn hủy nếu đơn đã đi quá xa
+        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.SHIPPING) {
+            throw new RuntimeException("Đơn hàng đang giao hoặc đã giao, không thể hủy!");
+        }
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new RuntimeException("Đơn hàng này đã bị hủy trước đó rồi!");
+        }
+
+        // 3. Đổi trạng thái đơn
         order.setStatus(OrderStatus.CANCELLED);
         Order saved = orderRepository.save(order);
         log.info("Order {} set to CANCELLED", orderId);
 
-        // Publish ORDER_CANCELLED event
+        // 4. Bắn Event cho Product Service lo việc dọn kho (ĐÃ XÓA Feign Client)
         List<OrderItemEvent> rollbackItems = saved.getItems() == null ? Collections.emptyList()
                 : saved.getItems().stream()
                 .map(i -> new OrderItemEvent(i.getProductId(), i.getQuantity()))
@@ -235,6 +248,7 @@ public class OrderService {
         rabbitTemplate.convertAndSend(RabbitMQConfig.ORDER_EXCHANGE_NAME,
                 RabbitMQConfig.ROUTING_KEY_CANCELLED,
                 cancelledEvent);
+
         log.info("Published OrderCancelledEvent for orderId={} rollbackItems={} isTimeout={}",
                 saved.getId(), rollbackItems.size(), isTimeout);
 

@@ -1,0 +1,26 @@
+package com.techstore.order_service.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProductDetailResponse {
+    private Long id;
+    private String name;
+    private String description;
+    private BigDecimal price;
+    private Integer stockQuantity;
+    private Long categoryId;
+    private String categoryName; // Có thể null nếu bạn chưa join bảng
+    private String thumbnailUrl;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}

@@ -28,9 +28,10 @@ public class AdminOrderController {
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         Page<OrderListResponse> pageResult = orderService.getAllOrdersForAdmin(pageable);
+
         return ResponseEntity.ok(ApiResponse.<Page<OrderListResponse>>builder()
-                .status(200)
-                .message("OK")
+                .status("SUCCESS")
+                .message("Lấy danh sách đơn hàng thành công")
                 .data(pageResult)
                 .build());
     }
@@ -39,25 +40,18 @@ public class AdminOrderController {
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<OrderDetailResponse>> detail(@PathVariable Long id) {
         try {
-            // For admin we bypass userId check; reuse service method by loading OrderDetail via repository
-            // We can call getAllOrdersForAdmin then map, but better to call orderService.getOrderDetail without user check.
-            // For simplicity, call getAllOrdersForAdmin to find the order in DB via OrderRepository through service.
-            // However service currently provides getAllOrdersForAdmin and getOrderDetail(user-specific). We'll call getAllOrdersForAdmin(pageable)
-            // To avoid complexity: create a call to getOrderDetail by fetching with userId = order.userId is not necessary.
-            // Instead, fetch order detail by id using a small helper via service (we didn't implement admin-specific getOrderDetail method).
-            OrderDetailResponse detail = orderService.getOrderDetail(id, null); // this will throw because service checks userId
-            // The above will throw; to avoid that, let's instead call a direct method - assume service offers admin access via getAllOrdersForAdmin
-            // But we haven't implemented admin-specific getOrderDetail. To keep logic correct, we will implement a direct repository access in service in next iteration.
+            // Admin truyền userId = null để bypass bước kiểm tra quyền sở hữu đơn hàng
+            OrderDetailResponse detail = orderService.getOrderDetail(id, null);
+
             return ResponseEntity.ok(ApiResponse.<OrderDetailResponse>builder()
-                    .status(200)
-                    .message("OK")
+                    .status("SUCCESS")
+                    .message("Lấy chi tiết đơn hàng thành công")
                     .data(detail)
                     .build());
         } catch (RuntimeException e) {
-            // Fallback: return 404 or error
             return ResponseEntity.badRequest().body(ApiResponse.<OrderDetailResponse>builder()
-                    .status(400)
-                    .message("Cannot fetch order detail: " + e.getMessage())
+                    .status("ERROR")
+                    .message(e.getMessage())
                     .data(null)
                     .build());
         }
@@ -71,23 +65,25 @@ public class AdminOrderController {
     ) {
         String status = body.get("status");
         String message = body.getOrDefault("message", "");
+
         if (status == null || status.isBlank()) {
             return ResponseEntity.badRequest().body(ApiResponse.<Map<String, Object>>builder()
-                    .status(400)
-                    .message("Missing status in request body")
+                    .status("ERROR")
+                    .message("Thiếu trạng thái (status) trong request body")
                     .data(null)
                     .build());
         }
+
         try {
             var updated = orderService.updateOrderStatus(id, status);
             return ResponseEntity.ok(ApiResponse.<Map<String, Object>>builder()
-                    .status(200)
-                    .message("Status updated")
+                    .status("SUCCESS")
+                    .message("Cập nhật trạng thái thành công")
                     .data(Map.of("orderId", updated.getId(), "status", updated.getStatus().name(), "message", message))
                     .build());
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(ApiResponse.<Map<String, Object>>builder()
-                    .status(400)
+                    .status("ERROR")
                     .message(e.getMessage())
                     .data(null)
                     .build());

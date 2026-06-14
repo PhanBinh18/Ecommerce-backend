@@ -1,21 +1,22 @@
 package com.techstore.order_service.client;
 
-import com.techstore.order_service.dto.CartDto;
 import com.techstore.order_service.config.FeignConfig;
+import com.techstore.order_service.dto.ApiResponse;
+import com.techstore.order_service.dto.CartResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
-// 1. Gọi sang Cart Service (Áp dụng cấu hình truyền Token)
 @FeignClient(name = "cart-service", configuration = FeignConfig.class)
 public interface CartClient {
-    @GetMapping("/api/carts/my-cart")
-    CartDto getMyCart();
 
-    // public API (existing)
-    @DeleteMapping("/api/carts/clear")
-    void clearCart();
+    @GetMapping("/api/v1/carts/")
+    ApiResponse<CartResponse> getMyCart();
 
-    // internal API for other services to clear cart after confirmed/payment
+    // Đã bọc ApiResponse<Void> thay vì void trơn
+    @DeleteMapping("/api/v1/carts/clear")
+    ApiResponse<Void> clearCart();
+
+    // Đã bọc ApiResponse<Void> thay vì void trơn
     @DeleteMapping("/api/v1/internal/carts/clear")
-    void clearCartInternal();
+    ApiResponse<Void> clearCartInternal(@RequestParam("userId") Long userId);
 }

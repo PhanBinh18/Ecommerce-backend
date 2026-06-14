@@ -1,5 +1,6 @@
 package com.techstore.order_service.controller;
 
+import com.techstore.order_service.client.ProductClient;
 import com.techstore.order_service.dto.*;
 import com.techstore.order_service.service.OrderService;
 import com.techstore.order_service.security.SecurityUtils;
@@ -7,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -22,13 +24,13 @@ public class OrderController {
         try {
             CheckoutResponse resp = orderService.checkout(request);
             return ResponseEntity.ok(ApiResponse.<CheckoutResponse>builder()
-                    .status(200)
+                    .status("SUCCESS")
                     .message("Checkout success")
                     .data(resp)
                     .build());
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(ApiResponse.<CheckoutResponse>builder()
-                    .status(400)
+                    .status("ERROR")
                     .message(e.getMessage())
                     .data(null)
                     .build());
@@ -42,13 +44,13 @@ public class OrderController {
             Long currentUserId = SecurityUtils.getCurrentUserId();
             java.util.List<OrderListResponse> list = orderService.getOrderHistory(currentUserId);
             return ResponseEntity.ok(ApiResponse.<java.util.List<OrderListResponse>>builder()
-                    .status(200)
+                    .status("SUCCESS")
                     .message("OK")
                     .data(list)
                     .build());
         } catch (RuntimeException e) {
             return ResponseEntity.status(401).body(ApiResponse.<java.util.List<OrderListResponse>>builder()
-                    .status(401)
+                    .status("FAILED")
                     .message(e.getMessage())
                     .data(null)
                     .build());
@@ -62,13 +64,13 @@ public class OrderController {
             Long currentUserId = SecurityUtils.getCurrentUserId();
             OrderDetailResponse detail = orderService.getOrderDetail(id, currentUserId);
             return ResponseEntity.ok(ApiResponse.<OrderDetailResponse>builder()
-                    .status(200)
+                    .status("SUCCESS")
                     .message("OK")
                     .data(detail)
                     .build());
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(ApiResponse.<OrderDetailResponse>builder()
-                    .status(400)
+                    .status("ERROR")
                     .message(e.getMessage())
                     .data(null)
                     .build());
@@ -96,15 +98,41 @@ public class OrderController {
             orderService.handleVNPayCallback(ipn);
             // VNPay expects simple response; still wrap in ApiResponse
             return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
-                    .status(200)
+                    .status("SUCCESS")
                     .message("IPN processed")
                     .data(Map.of("result", "OK"))
                     .build());
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(ApiResponse.<Map<String, String>>builder()
-                    .status(400)
+                    .status("ERROR")
                     .message(e.getMessage())
                     .data(Map.of("result", "FAILED"))
+                    .build());
+        }
+    }
+
+    // POST /api/v1/orders/{id}/cancel
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<ApiResponse<String>> cancelOrder(
+            @PathVariable("id") Long id,
+            @RequestParam(name = "reason", defaultValue = "Người dùng đổi ý không mua nữa") String reason) {
+        try {
+            // Lấy ID của user đang đăng nhập để đảm bảo họ chỉ hủy được đơn của chính mình
+            Long currentUserId = SecurityUtils.getCurrentUserId();
+
+            // Gọi hàm xử lý hủy đơn trong OrderService
+            orderService.cancelOrder(id, currentUserId, reason);
+
+            return ResponseEntity.ok(ApiResponse.<String>builder()
+                    .status("SUCCESS")
+                    .message("Hủy đơn hàng thành công")
+                    .data("Đã hủy đơn hàng ID: " + id)
+                    .build());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.<String>builder()
+                    .status("ERROR")
+                    .message(e.getMessage())
+                    .data(null)
                     .build());
         }
     }

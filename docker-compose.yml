@@ -9,7 +9,7 @@ services:
       - "3307:3306"
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-      - techstore_db_data:/var/lib/mysql # Đổi tên volume để lưu data mới tinh
+      - techstore_db_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p123456"]
       interval: 10s
@@ -17,5 +17,29 @@ services:
       retries: 5
       start_period: 20s
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: techstore-rabbitmq-container
+    restart: always
+    ports:
+      - "5672:5672"   # Port giao tiếp tiêu chuẩn cho Spring Boot (AMQP)
+      - "15672:15672" # Port để truy cập trang quản trị UI
+    volumes:
+      - techstore_rabbitmq_data:/var/lib/rabbitmq
+
+  # --- REDIS ---
+  redis:
+    image: redis:7.0-alpine
+    container_name: techstore-redis-container
+    restart: always
+    ports:
+      - "6379:6379"
+    # Đặt mật khẩu đồng bộ với MySQL cho dễ nhớ khi dev
+    command: redis-server --requirepass 123456
+    volumes:
+      - techstore_redis_data:/data
+
 volumes:
   techstore_db_data:
+  techstore_rabbitmq_data:
+  techstore_redis_data: # Volume mới cho Redis
