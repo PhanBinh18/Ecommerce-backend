@@ -235,6 +235,18 @@ public class UserService {
     @Transactional
     public User toggleUserStatus(Long userId) {
         User user = getUserById(userId);
+
+        // --- BỔ SUNG RÀNG BUỘC BẢO MẬT ---
+        // Kiểm tra xem user bị tác động có phải là ADMIN không
+        boolean isAdmin = user.getRoles().stream()
+                .anyMatch(role -> role.getName().equals("ROLE_ADMIN"));
+
+        // Nếu là Admin và đang ở trạng thái Hoạt động (tức là thao tác này định khóa) -> Chặn!
+        if (isAdmin && user.isActive()) {
+            throw new RuntimeException("Lỗi bảo mật: Không được phép khóa tài khoản Quản trị viên (ADMIN)!");
+        }
+
+        // Nếu hợp lệ thì mới lật trạng thái
         user.setActive(!user.isActive());
         return userRepository.save(user);
     }
