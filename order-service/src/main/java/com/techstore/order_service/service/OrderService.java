@@ -320,7 +320,7 @@ public class OrderService {
     }
 
     // -------------------------
-    // Query methods
+    // Query methods (Đã cập nhật cho AdminOrderController)
     // -------------------------
     public List<OrderListResponse> getOrderHistory(Long userId) {
         List<Order> orders = orderRepository.findByUserIdOrderByIdDesc(userId);
@@ -336,9 +336,28 @@ public class OrderService {
         return toDetailResponse(order);
     }
 
-    public Page<OrderListResponse> getAllOrdersForAdmin(Pageable pageable) {
-        Page<Order> page = orderRepository.findAll(pageable);
-        return page.map(this::toListResponse);
+    // NÂNG CẤP: Vừa phân trang (Pageable) vừa lọc theo trạng thái (statusStr)
+    public OrderPageResponse getAllOrdersForAdmin(Pageable pageable, String statusStr) {
+        Page<Order> page;
+        if (statusStr != null && !statusStr.isBlank()) {
+            OrderStatus status = parseStatus(statusStr);
+            page = orderRepository.findByStatus(status, pageable);
+        } else {
+            page = orderRepository.findAll(pageable);
+        }
+
+        // 1. Chuyển đổi Entity sang DTO List
+        List<OrderListResponse> contentList = page.map(this::toListResponse).getContent();
+
+        // 2. Gói vào PageResponse tự custom
+        return OrderPageResponse.builder()
+                .content(contentList)
+                .pageNumber(page.getNumber())
+                .pageSize(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .isLast(page.isLast())
+                .build();
     }
 
     // -------------------------

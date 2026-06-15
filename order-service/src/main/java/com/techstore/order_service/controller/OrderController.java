@@ -12,14 +12,14 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/orders")
+@RequestMapping("/api/v1")
 public class OrderController {
 
     @Autowired
     private OrderService orderService;
 
     // POST /api/v1/orders/checkout
-    @PostMapping("/checkout")
+    @PostMapping("/orders/checkout")
     public ResponseEntity<ApiResponse<CheckoutResponse>> checkout(@RequestBody CheckoutRequest request) {
         try {
             CheckoutResponse resp = orderService.checkout(request);
@@ -38,7 +38,7 @@ public class OrderController {
     }
 
     // GET /api/v1/orders/history
-    @GetMapping("/history")
+    @GetMapping("/orders/history")
     public ResponseEntity<ApiResponse<java.util.List<OrderListResponse>>> getHistory() {
         try {
             Long currentUserId = SecurityUtils.getCurrentUserId();
@@ -58,7 +58,7 @@ public class OrderController {
     }
 
     // GET /api/v1/orders/history/{id}
-    @GetMapping("/history/{id}")
+    @GetMapping("/orders/history/{id}")
     public ResponseEntity<ApiResponse<OrderDetailResponse>> getHistoryDetail(@PathVariable("id") Long id) {
         try {
             Long currentUserId = SecurityUtils.getCurrentUserId();
@@ -78,7 +78,7 @@ public class OrderController {
     }
 
     // GET /api/v1/orders/vnpay-ipn (public webhook)
-    @GetMapping("/vnpay-ipn")
+    @GetMapping("/orders/vnpay-ipn")
     public ResponseEntity<ApiResponse<Map<String, String>>> vnpayIpn(
             @RequestParam(name = "vnp_Amount", required = false) String vnp_Amount,
             @RequestParam(name = "vnp_OrderInfo", required = false) String vnp_OrderInfo,
@@ -112,7 +112,7 @@ public class OrderController {
     }
 
     // POST /api/v1/orders/{id}/cancel
-    @PostMapping("/{id}/cancel")
+    @PostMapping("/orders/{id}/cancel")
     public ResponseEntity<ApiResponse<String>> cancelOrder(
             @PathVariable("id") Long id,
             @RequestParam(name = "reason", defaultValue = "Người dùng đổi ý không mua nữa") String reason) {
@@ -136,4 +136,43 @@ public class OrderController {
                     .build());
         }
     }
+//
+//    // ==========================================
+//    // ADMIN ENDPOINTS
+//    // ==========================================
+//
+//    // Lấy toàn bộ danh sách đơn hàng (Có thể lọc theo trạng thái)
+//    @GetMapping("/admin/orders")
+//    public ResponseEntity<ApiResponse<java.util.List<OrderListResponse>>> getAllOrdersForAdmin(
+//            @RequestParam(required = false) String status) {
+//        // Bạn cần viết thêm hàm getAllOrdersForAdmin(status) trong OrderService
+//        java.util.List<OrderListResponse> list = orderService.getAllOrdersForAdmin(status);
+//        return ResponseEntity.ok(ApiResponse.<java.util.List<OrderListResponse>>builder()
+//                .status("SUCCESS").message("Lấy danh sách đơn hàng thành công").data(list).build());
+//    }
+//
+//    // Xem chi tiết đơn hàng (Admin xem được của mọi User)
+//    @GetMapping("/admin/orders/{id}")
+//    public ResponseEntity<ApiResponse<OrderDetailResponse>> getOrderDetailForAdmin(@PathVariable("id") Long id) {
+//        // Gọi hàm getOrderDetail hiện tại nhưng truyền tham số để bypass check UserID,
+//        // hoặc viết hàm riêng getOrderDetailForAdmin(id)
+//        OrderDetailResponse detail = orderService.getOrderDetailForAdmin(id);
+//        return ResponseEntity.ok(ApiResponse.<OrderDetailResponse>builder()
+//                .status("SUCCESS").message("Chi tiết đơn hàng").data(detail).build());
+//    }
+//
+//    // Cập nhật trạng thái đơn hàng (Dùng hàm updateOrderStatus bạn đã có)
+//    @PutMapping("/admin/orders/{id}/status")
+//    public ResponseEntity<ApiResponse<String>> updateOrderStatusForAdmin(
+//            @PathVariable("id") Long id,
+//            @RequestParam("status") String status) {
+//        try {
+//            orderService.updateOrderStatus(id, status);
+//            return ResponseEntity.ok(ApiResponse.<String>builder()
+//                    .status("SUCCESS").message("Cập nhật trạng thái thành công").data(status).build());
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().body(ApiResponse.<String>builder()
+//                    .status("ERROR").message(e.getMessage()).data(null).build());
+//        }
+//    }
 }

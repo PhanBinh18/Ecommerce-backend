@@ -3,6 +3,7 @@ package com.techstore.order_service.controller;
 import com.techstore.order_service.dto.OrderDetailResponse;
 import com.techstore.order_service.dto.OrderListResponse;
 import com.techstore.order_service.dto.ApiResponse;
+import com.techstore.order_service.dto.OrderPageResponse;
 import com.techstore.order_service.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
@@ -22,14 +23,17 @@ public class AdminOrderController {
 
     // GET /api/v1/admin/orders?page=0&size=10
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<OrderListResponse>>> list(
+    public ResponseEntity<ApiResponse<OrderPageResponse>> list(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
-        Page<OrderListResponse> pageResult = orderService.getAllOrdersForAdmin(pageable);
 
-        return ResponseEntity.ok(ApiResponse.<Page<OrderListResponse>>builder()
+        // Gọi Service lấy custom DTO
+        OrderPageResponse pageResult = orderService.getAllOrdersForAdmin(pageable, status);
+
+        return ResponseEntity.ok(ApiResponse.<OrderPageResponse>builder()
                 .status("SUCCESS")
                 .message("Lấy danh sách đơn hàng thành công")
                 .data(pageResult)
