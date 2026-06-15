@@ -6,9 +6,6 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
-/**
- * Bảng addresses: id, street, city, isDefault, user_id
- */
 @Entity
 @Table(name = "addresses")
 @Data
@@ -23,9 +20,15 @@ public class Address {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String street;
+    @Column(name = "receiver_name")
+    private String receiverName;
 
-    private String city;
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
+    // Dùng TEXT vì địa chỉ chi tiết có thể khá dài
+    @Column(name = "shipping_address", columnDefinition = "TEXT")
+    private String shippingAddress;
 
     @Column(name = "is_default")
     private boolean isDefault = false;

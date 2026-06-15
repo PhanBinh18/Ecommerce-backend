@@ -114,8 +114,9 @@ public class UserService {
         User user = getUserById(userId);
 
         Address addr = new Address();
-        addr.setStreet(request.getStreet());
-        addr.setCity(request.getCity());
+        addr.setReceiverName(request.getReceiverName());
+        addr.setPhoneNumber(request.getPhoneNumber());
+        addr.setShippingAddress(request.getShippingAddress());
         addr.setDefault(Boolean.TRUE.equals(request.getIsDefault()));
         addr.setUser(user);
 
@@ -142,8 +143,9 @@ public class UserService {
             throw new RuntimeException("Bạn không có quyền chỉnh sửa địa chỉ này");
         }
 
-        if (request.getStreet() != null) addr.setStreet(request.getStreet());
-        if (request.getCity() != null) addr.setCity(request.getCity());
+        if (request.getReceiverName() != null) addr.setReceiverName(request.getReceiverName());
+        if (request.getPhoneNumber() != null) addr.setPhoneNumber(request.getPhoneNumber());
+        if (request.getShippingAddress() != null) addr.setShippingAddress(request.getShippingAddress());
 
         Boolean reqDefault = request.getIsDefault();
         if (reqDefault != null) {
@@ -179,8 +181,9 @@ public class UserService {
     private AddressResponse mapToAddressResponse(Address address) {
         return AddressResponse.builder()
                 .id(address.getId())
-                .street(address.getStreet())
-                .city(address.getCity())
+                .receiverName(address.getReceiverName())
+                .phoneNumber(address.getPhoneNumber())
+                .shippingAddress(address.getShippingAddress())
                 .isDefault(address.isDefault())
                 .createdAt(address.getCreatedAt())
                 .build();

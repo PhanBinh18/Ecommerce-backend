@@ -7,17 +7,15 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * Response DTO for addresses returned to client.
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class AddressResponse {
     private Long id;
-    private String street;
-    private String city;
+    private String receiverName;
+    private String phoneNumber;
+    private String shippingAddress;
     private Boolean isDefault;
     private LocalDateTime createdAt;
 }

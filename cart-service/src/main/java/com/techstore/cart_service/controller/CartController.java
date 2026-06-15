@@ -78,7 +78,7 @@ public class CartController {
     }
 
     private ResponseEntity<ApiResponse<CartResponse>> unauthorizedResponse(String message) {
-        ApiResponse<CartResponse> body = new ApiResponse<>("error", message, null);
+        ApiResponse<CartResponse> body = new ApiResponse<>("ERROR", message, null);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
     }
 
@@ -98,13 +98,13 @@ public class CartController {
         if (userId != null) {
             CartDto dto = cartService.getCartByUserId(userId);
             CartResponse resp = toCartResponseFromCartDto(dto);
-            return ResponseEntity.ok(new ApiResponse<>("success", "OK", resp));
+            return ResponseEntity.ok(new ApiResponse<>("SUCCESS", "OK", resp));
         }
 
         if (guestUuid != null && !guestUuid.isBlank()) {
             List<GuestCartItemDto> guestItems = guestCartService.getCart(guestUuid);
             CartResponse resp = toCartResponseFromGuestItems(guestItems);
-            return ResponseEntity.ok(new ApiResponse<>("success", "OK", resp));
+            return ResponseEntity.ok(new ApiResponse<>("SUCCESS", "OK", resp));
         }
 
         return unauthorizedResponse("Unauthorized: missing authentication or guest identifier");
@@ -125,9 +125,9 @@ public class CartController {
             try {
                 CartDto dto = cartService.addToCart(userId, request.getProductId(), request.getQuantity());
                 CartResponse resp = toCartResponseFromCartDto(dto);
-                return ResponseEntity.ok(new ApiResponse<>("success", "Added to cart", resp));
+                return ResponseEntity.ok(new ApiResponse<>("SUCCESS", "Added to cart", resp));
             } catch (Exception e) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+                return ResponseEntity.badRequest().body(new ApiResponse<>("ERROR", e.getMessage(), null));
             }
         }
 
@@ -138,16 +138,16 @@ public class CartController {
                 productResp = productClient.getProductById(request.getProductId());
             } catch (Exception e) {
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                        .body(new ApiResponse<>("error", "Product Service unreachable or product not found", null));
+                        .body(new ApiResponse<>("ERROR", "Product Service unreachable or product not found", null));
             }
             if (productResp == null || productResp.getData() == null) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "Product not found", null));
+                return ResponseEntity.badRequest().body(new ApiResponse<>("ERROR", "Product not found", null));
             }
             ProductDetailResponse product = productResp.getData();
             // stock check
             if (product.getStockQuantity() == null || product.getStockQuantity() < request.getQuantity()) {
                 return ResponseEntity.badRequest()
-                        .body(new ApiResponse<>("error", "Insufficient stock. Available: " + product.getStockQuantity(), null));
+                        .body(new ApiResponse<>("ERROR", "Insufficient stock. Available: " + product.getStockQuantity(), null));
             }
 
             // add to guest redis
@@ -156,7 +156,7 @@ public class CartController {
             // return updated guest cart
             List<GuestCartItemDto> guestItems = guestCartService.getCart(guestUuid);
             CartResponse resp = toCartResponseFromGuestItems(guestItems);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Added to guest cart", resp));
+            return ResponseEntity.ok(new ApiResponse<>("SUCCESS", "Added to guest cart", resp));
         }
 
         return unauthorizedResponse("Unauthorized: missing authentication or guest identifier");
@@ -174,7 +174,7 @@ public class CartController {
     ) {
         Integer quantity = payload.get("quantity");
         if (quantity == null) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", "Missing quantity in body", null));
+            return ResponseEntity.badRequest().body(new ApiResponse<>("ERROR", "Missing quantity in body", null));
         }
 
         Long userId = getCurrentUserId();
@@ -182,22 +182,22 @@ public class CartController {
             // find cart item id by productId
             Optional<Cart> cartOpt = cartRepository.findByUserId(userId);
             if (cartOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("error", "Cart not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("ERROR", "Cart not found", null));
             }
             Cart cart = cartOpt.get();
             Optional<CartItem> ciOpt = cart.getItems().stream()
                     .filter(ci -> Objects.equals(ci.getProductId(), productId))
                     .findFirst();
             if (ciOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("error", "Item not found in cart", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("ERROR", "Item not found in cart", null));
             }
             CartItem ci = ciOpt.get();
             try {
                 CartDto dto = cartService.updateItemQuantity(ci.getId(), quantity);
                 CartResponse resp = toCartResponseFromCartDto(dto);
-                return ResponseEntity.ok(new ApiResponse<>("success", "Quantity updated", resp));
+                return ResponseEntity.ok(new ApiResponse<>("SUCCESS", "Quantity updated", resp));
             } catch (Exception e) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+                return ResponseEntity.badRequest().body(new ApiResponse<>("ERROR", e.getMessage(), null));
             }
         }
 
@@ -206,9 +206,9 @@ public class CartController {
                 guestCartService.updateItemQuantity(guestUuid, productId, quantity);
                 List<GuestCartItemDto> guestItems = guestCartService.getCart(guestUuid);
                 CartResponse resp = toCartResponseFromGuestItems(guestItems);
-                return ResponseEntity.ok(new ApiResponse<>("success", "Guest quantity updated", resp));
+                return ResponseEntity.ok(new ApiResponse<>("SUCCESS", "Guest quantity updated", resp));
             } catch (Exception e) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+                return ResponseEntity.badRequest().body(new ApiResponse<>("ERROR", e.getMessage(), null));
             }
         }
 
@@ -228,27 +228,27 @@ public class CartController {
         if (userId != null) {
             Optional<Cart> cartOpt = cartRepository.findByUserId(userId);
             if (cartOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("error", "Cart not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("ERROR", "Cart not found", null));
             }
             Cart cart = cartOpt.get();
             Optional<CartItem> ciOpt = cart.getItems().stream()
                     .filter(ci -> Objects.equals(ci.getProductId(), productId))
                     .findFirst();
             if (ciOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("error", "Item not found in cart", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("ERROR", "Item not found in cart", null));
             }
             CartItem ci = ciOpt.get();
             cartService.removeItem(ci.getId());
             CartDto dto = cartService.getCartByUserId(userId);
             CartResponse resp = toCartResponseFromCartDto(dto);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Item removed", resp));
+            return ResponseEntity.ok(new ApiResponse<>("SUCCESS", "Item removed", resp));
         }
 
         if (guestUuid != null && !guestUuid.isBlank()) {
             guestCartService.removeItem(guestUuid, productId);
             List<GuestCartItemDto> guestItems = guestCartService.getCart(guestUuid);
             CartResponse resp = toCartResponseFromGuestItems(guestItems);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Item removed from guest cart", resp));
+            return ResponseEntity.ok(new ApiResponse<>("SUCCESS", "Item removed from guest cart", resp));
         }
 
         return unauthorizedResponse("Unauthorized: missing authentication or guest identifier");
@@ -266,18 +266,18 @@ public class CartController {
     ) {
         Long userId = getCurrentUserId();
         if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponse<>("error", "Authentication required for merge", null));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponse<>("ERROR", "Authentication required for merge", null));
         }
         String guestUuid = (guestUuidHeader != null && !guestUuidHeader.isBlank()) ? guestUuidHeader : guestUuidParam;
         if (guestUuid == null || guestUuid.isBlank()) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", "guestUuid is required", null));
+            return ResponseEntity.badRequest().body(new ApiResponse<>("ERROR", "guestUuid is required", null));
         }
 
         try {
             cartService.mergeGuestCartToUser(guestUuid, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Merged guest cart into user cart", "OK"));
+            return ResponseEntity.ok(new ApiResponse<>("SUCCESS", "Merged guest cart into user cart", "OK"));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>("error", e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>("ERROR", e.getMessage(), null));
         }
     }
 }

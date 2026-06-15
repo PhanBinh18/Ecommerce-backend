@@ -3,6 +3,7 @@ package com.techstore.order_service.service;
 import com.techstore.order_service.client.CartClient;
 import com.techstore.order_service.client.ProductClient;
 import com.techstore.order_service.config.RabbitMQConfig;
+import com.techstore.order_service.config.VNPayConfig;
 import com.techstore.order_service.dto.*;
 import com.techstore.order_service.entity.*;
 import com.techstore.order_service.event.*;
@@ -16,6 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -38,6 +42,8 @@ public class OrderService {
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
+
+    @Autowired private VNPayConfig vnPayConfig;
 
     // -------------------------
     // Checkout
@@ -91,6 +97,9 @@ public class OrderService {
         order.setOrderCode("ORD-" + UUID.randomUUID());
         order.setNote(request.getNote());
         order.setPaymentMethod(request.getPaymentMethod());
+        order.setReceiverName(request.getReceiverName());
+        order.setPhoneNumber(request.getPhoneNumber());
+        order.setShippingAddress(request.getShippingAddress());
 
         OrderStatus initialStatus = "VNPAY".equalsIgnoreCase(request.getPaymentMethod()) ?
                 OrderStatus.PENDING_UNPAID : OrderStatus.PROCESSING;
@@ -161,8 +170,9 @@ public class OrderService {
 
         String paymentUrl = null;
         if ("VNPAY".equalsIgnoreCase(request.getPaymentMethod())) {
-            paymentUrl = "https://sandbox.vnpay.vn/payment?orderCode=" + saved.getOrderCode();
-            log.info("Generated mock VNPAY paymentUrl for order {}: {}", saved.getOrderCode(), paymentUrl);
+            // Gọi hàm sinh URL chuẩn của VNPay (Hàm này ta sẽ viết ở bước 2 bên dưới)
+            paymentUrl = createVNPayUrl(saved, vnPayConfig);
+            log.info("Generated real VNPAY paymentUrl for order {}: {}", saved.getOrderCode(), paymentUrl);
         }
 
         return CheckoutResponse.builder()
@@ -420,5 +430,69 @@ public class OrderService {
                 .updatedAt(order.getUpdatedAt())
                 .items(items)
                 .build();
+    }
+
+    // -------------------------
+    // Helper: Tạo URL thanh toán VNPay chuẩn
+    // -------------------------
+    private String createVNPayUrl(Order order, com.techstore.order_service.config.VNPayConfig config) {
+        long amount = order.getTotalPrice().longValue() * 100L; // VNPay yêu cầu nhân 100
+
+        Map<String, String> vnp_Params = new HashMap<>();
+        vnp_Params.put("vnp_Version", config.getVnp_Version());
+        vnp_Params.put("vnp_Command", config.getVnp_Command());
+        vnp_Params.put("vnp_TmnCode", config.getVnp_TmnCode());
+        vnp_Params.put("vnp_Amount", String.valueOf(amount));
+        vnp_Params.put("vnp_CurrCode", "VND");
+        vnp_Params.put("vnp_TxnRef", order.getOrderCode());
+        vnp_Params.put("vnp_OrderInfo", "Thanh toan don hang " + order.getOrderCode());
+        vnp_Params.put("vnp_OrderType", "other");
+        vnp_Params.put("vnp_Locale", "vn");
+        vnp_Params.put("vnp_ReturnUrl", config.getVnp_ReturnUrl());
+        vnp_Params.put("vnp_IpAddr", "127.0.0.1"); // Tạm để localhost, nếu có HttpServletRequest thì lấy IP thật
+
+        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+        vnp_Params.put("vnp_CreateDate", formatter.format(cld.getTime()));
+
+        cld.add(Calendar.MINUTE, 15); // Thời hạn thanh toán 15 phút
+        vnp_Params.put("vnp_ExpireDate", formatter.format(cld.getTime()));
+
+        // Sắp xếp các tham số theo thứ tự alphabet
+        List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
+        Collections.sort(fieldNames);
+        StringBuilder hashData = new StringBuilder();
+        StringBuilder query = new StringBuilder();
+
+        try {
+            Iterator<String> itr = fieldNames.iterator();
+            while (itr.hasNext()) {
+                String fieldName = itr.next();
+                String fieldValue = vnp_Params.get(fieldName);
+                if ((fieldValue != null) && (fieldValue.length() > 0)) {
+                    // Build hash data
+                    hashData.append(fieldName);
+                    hashData.append('=');
+                    hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
+                    // Build query
+                    query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII.toString()));
+                    query.append('=');
+                    query.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
+                    if (itr.hasNext()) {
+                        query.append('&');
+                        hashData.append('&');
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error encoding VNPay params: {}", e.getMessage());
+        }
+
+        // Tạo chữ ký (Secure Hash)
+        String queryUrl = query.toString();
+        String vnp_SecureHash = config.hmacSHA512(config.getSecretKey(), hashData.toString());
+        queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;
+
+        return config.getVnp_PayUrl() + "?" + queryUrl;
     }
 }
