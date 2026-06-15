@@ -18,7 +18,7 @@ import java.util.List;
 @Slf4j
 public class OrderEventListener {
 
-    private final ProductService productService;
+    private final ProductServiceImpl productServiceImpl;
     private final RabbitTemplate rabbitTemplate;
 
     /**
@@ -35,7 +35,7 @@ public class OrderEventListener {
                 log.warn("Order #{} contains no items", event.getOrderId());
             } else {
                 // Delegate to ProductService which performs transactional confirm (deduct stock & reserved)
-                productService.confirmOrderItems(items);
+                productServiceImpl.confirmOrderItems(items);
             }
 
             // Send success response back to Order service
@@ -66,7 +66,7 @@ public class OrderEventListener {
                 log.warn("Order #{} cancellation contains no items", event.getOrderId());
             } else {
                 // Delegate to ProductService for cancel logic (transactional)
-                productService.cancelOrderItems(items, event.getIsTimeout());
+                productServiceImpl.cancelOrderItems(items, event.getIsTimeout());
             }
 
             // Send success response back to Order service

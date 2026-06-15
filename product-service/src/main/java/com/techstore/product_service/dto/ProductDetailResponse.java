@@ -19,6 +19,7 @@ public class ProductDetailResponse {
     private BigDecimal price;
     private String description;
 
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -43,4 +44,14 @@ public class ProductDetailResponse {
     private List<ImageInfo> images;
     private Integer stockQuantity;
     private LocalDateTime createdAt;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class BrandInfo {
+        private Long id;
+        private String name;
+    }
+    private BrandInfo brand;
 }

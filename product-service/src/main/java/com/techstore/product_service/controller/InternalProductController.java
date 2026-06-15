@@ -5,7 +5,7 @@ import com.techstore.product_service.dto.ReservationRequest;
 import com.techstore.product_service.dto.ReservationResponse;
 import com.techstore.product_service.entity.Product;
 import com.techstore.product_service.repository.ProductRepository;
-import com.techstore.product_service.service.ProductService;
+import com.techstore.product_service.service.ProductServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/internal/products")
 public class InternalProductController {
 
-    private final ProductService productService;
+    private final ProductServiceImpl productServiceImpl;
     private final ProductRepository productRepository;
 
     /**
@@ -73,7 +73,7 @@ public class InternalProductController {
             List<ReservationResponse> responses = requests.stream()
                     .map(req -> {
                         try {
-                            boolean reserved = productService.reserveStock(req.getProductId(), req.getQuantity());
+                            boolean reserved = productServiceImpl.reserveStock(req.getProductId(), req.getQuantity());
                             return ReservationResponse.builder()
                                     .productId(req.getProductId())
                                     .reserved(reserved)
@@ -122,7 +122,7 @@ public class InternalProductController {
 
             for (ReservationRequest req : requests) {
                 try {
-                    productService.releaseReservation(req.getProductId(), req.getQuantity());
+                    productServiceImpl.releaseReservation(req.getProductId(), req.getQuantity());
                     totalReleased++;
                 } catch (Exception e) {
                     totalFailed++;

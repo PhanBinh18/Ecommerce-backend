@@ -17,4 +17,6 @@ public class ProductResponse {
     private BigDecimal price;
     private String categoryName;
     private String thumbnail; // URL đến ảnh thumbnail (nếu có)
+    private String brandName;
+    private Integer stockQuantity;
 }

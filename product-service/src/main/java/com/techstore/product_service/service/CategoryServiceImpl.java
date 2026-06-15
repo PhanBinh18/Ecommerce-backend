@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class CategoryService {
+public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
 
@@ -25,6 +25,7 @@ public class CategoryService {
      * Cached for performance.
      */
     @Cacheable(value = "categories")
+    @Override
     public List<CategoryResponse> getDisplayCategories() {
         List<Category> categories = categoryRepository.findAll()
                 .stream()
@@ -36,10 +37,12 @@ public class CategoryService {
     /**
      * Admin: get all categories (no cache).
      */
+    @Override
     public List<CategoryResponse> getAllCategoriesForAdmin() {
         return categoryRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
     }
 
+    @Override
     public CategoryResponse getCategoryById(Long id) {
         Category cat = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found: " + id));
@@ -51,6 +54,7 @@ public class CategoryService {
      */
     @Transactional
     @CacheEvict(value = "categories", allEntries = true)
+    @Override
     public CategoryResponse createCategory(CategoryRequest request) {
         Category c = Category.builder()
                 .name(request.getName())
@@ -65,6 +69,7 @@ public class CategoryService {
      */
     @Transactional
     @CacheEvict(value = "categories", allEntries = true)
+    @Override
     public CategoryResponse updateCategory(Long id, CategoryRequest request) {
         Category cat = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found: " + id));
@@ -78,10 +83,19 @@ public class CategoryService {
      */
     @Transactional
     @CacheEvict(value = "categories", allEntries = true)
-    public CategoryResponse hideCategory(Long id) {
+    @Override
+    public CategoryResponse hideCategory(Long id) { // Giữ nguyên tên hàm cho đỡ phải sửa nhiều
         Category cat = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found: " + id));
-        cat.setStatus(CategoryStatus.HIDDEN);
+
+        // --- Bổ sung logic Toggle ---
+        if (cat.getStatus() == CategoryStatus.HIDDEN) {
+            cat.setStatus(CategoryStatus.DISPLAY); // Nếu đang ẩn thì hiện
+        } else {
+            cat.setStatus(CategoryStatus.HIDDEN); // Nếu đang hiện thì ẩn
+        }
+        // ----------------------------
+
         Category saved = categoryRepository.save(cat);
         return toResponse(saved);
     }

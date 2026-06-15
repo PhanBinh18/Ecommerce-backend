@@ -4,10 +4,12 @@ import com.techstore.product_service.dto.ProductDetailResponse;
 import com.techstore.product_service.dto.ProductPageResponse;
 import com.techstore.product_service.dto.ProductRequest;
 import com.techstore.product_service.dto.ProductResponse;
+import com.techstore.product_service.entity.Brand;
 import com.techstore.product_service.entity.Category;
 import com.techstore.product_service.entity.Product;
 import com.techstore.product_service.entity.ProductImage;
 import com.techstore.product_service.entity.ProductStatus;
+import com.techstore.product_service.repository.BrandRepository;
 import com.techstore.product_service.repository.CategoryRepository;
 import com.techstore.product_service.repository.ProductImageRepository;
 import com.techstore.product_service.repository.ProductRepository;
@@ -26,17 +28,19 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class ProductService {
+public class ProductServiceImpl implements ProductService { // <-- Đã thêm implements
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductImageRepository productImageRepository;
+    private final BrandRepository brandRepository; // <-- Bổ sung BrandRepository
     private final RedissonClient redissonClient;
 
     // ======================
     // Public APIs (cached)
     // ======================
 
+    @Override
     @Cacheable(value = "products")
     public ProductPageResponse<ProductResponse> getProducts(int page, int size, String sortType, String keyword, String category, String brand) {
         Sort sort = Sort.by(Sort.Direction.DESC, "id");
@@ -60,7 +64,10 @@ public class ProductService {
         }
 
         Pageable pageable = PageRequest.of(page, size, sort);
-        Page<Product> productPage = productRepository.searchAndFilterProducts(keyword, category, ProductStatus.ACTIVE, pageable);
+
+        // LƯU Ý: Đã truyền thêm tham số 'brand' vào hàm này.
+        // Bạn cần vào ProductRepository cập nhật lại câu @Query để nó lọc thêm theo brand.name nhé!
+        Page<Product> productPage = productRepository.searchAndFilterProducts(keyword, category, brand, ProductStatus.ACTIVE, pageable);
 
         List<ProductResponse> content = productPage.getContent().stream()
                 .map(this::toProductResponse)
@@ -75,6 +82,7 @@ public class ProductService {
                 .build();
     }
 
+    @Override
     @Cacheable(value = "products", key = "'product::' + #id")
     public ProductDetailResponse getProductById(Long id) {
         Product product = productRepository.findById(id)
@@ -91,6 +99,7 @@ public class ProductService {
     // Admin APIs (mutating)
     // ======================
 
+    @Override
     @Transactional
     @CacheEvict(value = "products", allEntries = true)
     public ProductDetailResponse createProduct(ProductRequest request) {
@@ -100,11 +109,19 @@ public class ProductService {
                     .orElseThrow(() -> new RuntimeException("Category not found: " + request.getCategoryId()));
         }
 
+        // TÌM BRAND
+        Brand brand = null;
+        if (request.getBrandId() != null) {
+            brand = brandRepository.findById(request.getBrandId())
+                    .orElseThrow(() -> new RuntimeException("Brand not found: " + request.getBrandId()));
+        }
+
         Product p = Product.builder()
                 .name(request.getName())
                 .price(request.getPrice())
                 .description(request.getDescription())
                 .category(category)
+                .brand(brand) // <-- Gắn Brand vào Entity
                 .stockQuantity(Optional.ofNullable(request.getStockQuantity()).orElse(0))
                 .reservedQuantity(0)
                 .status(ProductStatus.ACTIVE)
@@ -114,6 +131,7 @@ public class ProductService {
         return toProductDetailResponse(saved);
     }
 
+    @Override
     @Transactional
     @CacheEvict(value = "products", allEntries = true)
     public ProductDetailResponse updateProduct(Long id, ProductRequest request) {
@@ -131,10 +149,18 @@ public class ProductService {
             product.setCategory(category);
         }
 
+        // CẬP NHẬT BRAND
+        if (request.getBrandId() != null) {
+            Brand brand = brandRepository.findById(request.getBrandId())
+                    .orElseThrow(() -> new RuntimeException("Brand not found: " + request.getBrandId()));
+            product.setBrand(brand);
+        }
+
         Product saved = productRepository.save(product);
         return toProductDetailResponse(saved);
     }
 
+    @Override
     @Transactional
     @CacheEvict(value = "products", allEntries = true)
     public void deleteProduct(Long id) {
@@ -145,114 +171,66 @@ public class ProductService {
     }
 
     // ======================
-    // Stock Reservation (with Redisson Lock)
+    // Stock Reservation & Saga
+    // (Các hàm này giữ nguyên 100% logic của bạn)
     // ======================
 
-    /**
-     * Reserve stock for an order. Uses Redisson RLock to prevent race conditions.
-     * Returns true if reservation succeeded, false if not enough stock.
-     */
+    @Override
     public boolean reserveStock(Long productId, int quantity) throws InterruptedException {
         String lockKey = "product::lock::" + productId;
         RLock lock = redissonClient.getLock(lockKey);
-
         try {
-            // Try to acquire lock with 10 second wait time and 30 second hold time
             boolean lockAcquired = lock.tryLock(10, 30, TimeUnit.SECONDS);
-            if (!lockAcquired) {
-                throw new RuntimeException("Failed to acquire lock for product " + productId);
-            }
+            if (!lockAcquired) throw new RuntimeException("Failed to acquire lock for product " + productId);
 
-            // Lock acquired, now check & update stock
             Product product = productRepository.findById(productId)
                     .orElseThrow(() -> new RuntimeException("Product not found: " + productId));
 
-            // Check if enough stock available
             int availableStock = product.getStockQuantity() - product.getReservedQuantity();
-            if (availableStock < quantity) {
-                return false; // Not enough stock
-            }
+            if (availableStock < quantity) return false;
 
-            // Reserve the stock
             product.setReservedQuantity(product.getReservedQuantity() + quantity);
             productRepository.save(product);
-
-            return true; // Reservation successful
+            return true;
         } finally {
-            // Always unlock
-            if (lock.isHeldByCurrentThread()) {
-                lock.unlock();
-            }
+            if (lock.isHeldByCurrentThread()) lock.unlock();
         }
     }
 
-    /**
-     * Release a reservation when order is cancelled (timeout or other reason).
-     * Subtract from reservedQuantity only (don't add back to stockQuantity).
-     */
+    @Override
     @Transactional
     public void releaseReservation(Long productId, int quantity) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found: " + productId));
-
         int newReserved = product.getReservedQuantity() - quantity;
-        if (newReserved < 0) newReserved = 0;
-
-        product.setReservedQuantity(newReserved);
+        product.setReservedQuantity(Math.max(newReserved, 0));
         productRepository.save(product);
     }
 
-    /**
-     * Confirm order: deduct both stockQuantity and reservedQuantity.
-     * Called after successful payment.
-     */
+    @Override
     @Transactional
     public void confirmOrder(Long productId, int quantity) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found: " + productId));
-
-        // Deduct from stock
         product.setStockQuantity(product.getStockQuantity() - quantity);
-        // Deduct from reserved
         product.setReservedQuantity(product.getReservedQuantity() - quantity);
-
         productRepository.save(product);
     }
 
-    // ======================
-    // Saga Pattern: Order Confirmation
-    // ======================
-
-    /**     * Called when ORDER_CONFIRMED event received from Order Service.     * Deduct both stockQuantity and reservedQuantity for confirmed items.     * Wrapped in @Transactional for atomicity.     */
+    @Override
     @Transactional
     public void confirmOrderItems(List<com.techstore.product_service.event.OrderItemEvent> items) {
         for (com.techstore.product_service.event.OrderItemEvent item : items) {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
-
-            // Deduct from stock (actual inventory)
-            int newStock = product.getStockQuantity() - item.getQuantity();
-            if (newStock < 0) newStock = 0;
-            product.setStockQuantity(newStock);
-
-            // Deduct from reserved (already held for this order)
-            int newReserved = product.getReservedQuantity() - item.getQuantity();
-            if (newReserved < 0) newReserved = 0;
-            product.setReservedQuantity(newReserved);
-
+            product.setStockQuantity(Math.max(product.getStockQuantity() - item.getQuantity(), 0));
+            product.setReservedQuantity(Math.max(product.getReservedQuantity() - item.getQuantity(), 0));
             productRepository.save(product);
-            System.out.println("✅ Confirmed order item: Product #" + item.getProductId()
-                    + ", Qty: " + item.getQuantity());
+            System.out.println("✅ Confirmed order item: Product #" + item.getProductId() + ", Qty: " + item.getQuantity());
         }
     }
 
-    // ======================
-    // Saga Pattern: Order Cancellation
-    // ======================
-
-    /**     * Called when ORDER_CANCELLED event received from Order Service.     *
-     * Logic:     * - If isTimeout == true: Only release reserved stock (payment timeout, no shipment yet)     * - If isTimeout == false: Add back to stock (order confirmed but later cancelled)     *
-     * Wrapped in @Transactional for atomicity.     */
+    @Override
     @Transactional
     public void cancelOrderItems(List<com.techstore.product_service.event.OrderItemEvent> items, Boolean isTimeout) {
         for (com.techstore.product_service.event.OrderItemEvent item : items) {
@@ -260,30 +238,13 @@ public class ProductService {
                     .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
 
             if (isTimeout != null && isTimeout) {
-                // ===== TIMEOUT CASE =====
-                // Payment timeout: reserved stock was never deducted from actual stock
-                // Just release the reservation
-                int newReserved = product.getReservedQuantity() - item.getQuantity();
-                if (newReserved < 0) newReserved = 0;
-                product.setReservedQuantity(newReserved);
-
-                System.out.println("⏱️ Order timeout: Release reserved stock for Product #"
-                        + item.getProductId() + ", Qty: " + item.getQuantity());
+                product.setReservedQuantity(Math.max(product.getReservedQuantity() - item.getQuantity(), 0));
+                System.out.println("⏱️ Order timeout: Release reserved stock for Product #" + item.getProductId() + ", Qty: " + item.getQuantity());
             } else {
-                // ===== CANCELLED AFTER CONFIRMED CASE =====
-                // Order was confirmed and stock was deducted
-                // Now we need to add it back to inventory
                 product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
-
-                // Also reduce reserved if still tracked (safeguard)
-                int newReserved = product.getReservedQuantity() - item.getQuantity();
-                if (newReserved < 0) newReserved = 0;
-                product.setReservedQuantity(newReserved);
-
-                System.out.println("🔙 Order cancelled (after confirm): Restore stock for Product #"
-                        + item.getProductId() + ", Qty: " + item.getQuantity());
+                product.setReservedQuantity(Math.max(product.getReservedQuantity() - item.getQuantity(), 0));
+                System.out.println("🔙 Order cancelled (after confirm): Restore stock for Product #" + item.getProductId() + ", Qty: " + item.getQuantity());
             }
-
             productRepository.save(product);
         }
     }
@@ -298,12 +259,15 @@ public class ProductService {
         if (thumb.isPresent()) thumbnail = thumb.get().getUrl();
 
         String categoryName = p.getCategory() != null ? p.getCategory().getName() : null;
+        String brandName = p.getBrand() != null ? p.getBrand().getName() : null; // Lấy tên Brand
 
         return ProductResponse.builder()
                 .id(p.getId())
                 .name(p.getName())
                 .price(p.getPrice())
+                .stockQuantity(p.getStockQuantity())
                 .categoryName(categoryName)
+                .brandName(brandName) // Gắn vào DTO (BẠN CẦN BỔ SUNG TRƯỜNG NÀY VÀO ProductResponse.java)
                 .thumbnail(thumbnail)
                 .build();
     }
@@ -325,12 +289,21 @@ public class ProductService {
                     .build();
         }
 
+        ProductDetailResponse.BrandInfo brandInfo = null;
+        if (p.getBrand() != null) {
+            brandInfo = ProductDetailResponse.BrandInfo.builder()
+                    .id(p.getBrand().getId())
+                    .name(p.getBrand().getName())
+                    .build();
+        }
+
         return ProductDetailResponse.builder()
                 .id(p.getId())
                 .name(p.getName())
                 .price(p.getPrice())
                 .description(p.getDescription())
                 .category(catInfo)
+                .brand(brandInfo) // Gắn vào DTO (BẠN CẦN BỔ SUNG Class con BrandInfo VÀO ProductDetailResponse.java)
                 .images(images)
                 .stockQuantity(p.getStockQuantity())
                 .createdAt(p.getCreatedAt())

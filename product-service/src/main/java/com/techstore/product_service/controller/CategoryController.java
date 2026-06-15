@@ -3,7 +3,7 @@ package com.techstore.product_service.controller;
 import com.techstore.product_service.dto.ApiResponse;
 import com.techstore.product_service.dto.CategoryRequest;
 import com.techstore.product_service.dto.CategoryResponse;
-import com.techstore.product_service.service.CategoryService;
+import com.techstore.product_service.service.CategoryServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,12 +16,12 @@ import java.util.List;
 @RequestMapping("/api/v1")
 public class CategoryController {
 
-    private final CategoryService categoryService;
+    private final CategoryServiceImpl categoryServiceImpl;
 
     // Public: only DISPLAY
     @GetMapping("/categories")
     public ResponseEntity<ApiResponse<List<CategoryResponse>>> getPublicCategories() {
-        List<CategoryResponse> data = categoryService.getDisplayCategories();
+        List<CategoryResponse> data = categoryServiceImpl.getDisplayCategories();
         ApiResponse<List<CategoryResponse>> res = ApiResponse.<List<CategoryResponse>>builder()
                 .status("SUCCESS")
                 .message("Lấy danh sách danh mục thành công")
@@ -34,7 +34,7 @@ public class CategoryController {
     // Admin: list all categories
     @GetMapping("/admin/categories")
     public ResponseEntity<ApiResponse<List<CategoryResponse>>> getAllCategoriesForAdmin() {
-        List<CategoryResponse> data = categoryService.getAllCategoriesForAdmin();
+        List<CategoryResponse> data = categoryServiceImpl.getAllCategoriesForAdmin();
         ApiResponse<List<CategoryResponse>> res = ApiResponse.<List<CategoryResponse>>builder()
                 .status("SUCCESS")
                 .message("Lấy danh sách danh mục (admin) thành công")
@@ -47,7 +47,7 @@ public class CategoryController {
     // Admin: create
     @PostMapping("/admin/categories")
     public ResponseEntity<ApiResponse<CategoryResponse>> createCategory(@RequestBody CategoryRequest request) {
-        CategoryResponse created = categoryService.createCategory(request);
+        CategoryResponse created = categoryServiceImpl.createCategory(request);
         ApiResponse<CategoryResponse> res = ApiResponse.<CategoryResponse>builder()
                 .status("SUCCESS")
                 .message("Tạo danh mục thành công")
@@ -62,7 +62,7 @@ public class CategoryController {
     public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(
             @PathVariable Long id,
             @RequestBody CategoryRequest request) {
-        CategoryResponse updated = categoryService.updateCategory(id, request);
+        CategoryResponse updated = categoryServiceImpl.updateCategory(id, request);
         ApiResponse<CategoryResponse> res = ApiResponse.<CategoryResponse>builder()
                 .status("SUCCESS")
                 .message("Cập nhật danh mục thành công")
@@ -75,7 +75,7 @@ public class CategoryController {
     // Admin: hide category (soft delete)
     @DeleteMapping("/admin/categories/{id}")
     public ResponseEntity<ApiResponse<CategoryResponse>> hideCategory(@PathVariable Long id) {
-        CategoryResponse hidden = categoryService.hideCategory(id);
+        CategoryResponse hidden = categoryServiceImpl.hideCategory(id);
         ApiResponse<CategoryResponse> res = ApiResponse.<CategoryResponse>builder()
                 .status("SUCCESS")
                 .message("Đã ẩn danh mục thành công")

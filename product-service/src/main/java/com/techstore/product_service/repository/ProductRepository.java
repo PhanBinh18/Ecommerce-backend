@@ -24,13 +24,18 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // Giữ compatibility với logic cũ: tìm sản phẩm stock thấp và active
     List<Product> findByStockQuantityLessThanAndStatus(Integer stockQuantity, ProductStatus status);
 
-    // Search + filter (keyword & categoryName) — truyền status để lọc ACTIVE
-    @Query("SELECT p FROM Product p WHERE (:status IS NULL OR p.status = :status) " +
+    // --- ĐÃ SỬA ---
+    // Bổ sung logic: Nếu là Khách Hàng (status != NULL), thì ẩn luôn các sản phẩm thuộc danh mục bị HIDDEN.
+    // Nếu là Admin (status = NULL), bỏ qua kiểm tra, hiển thị tất cả.
+    @Query("SELECT p FROM Product p LEFT JOIN p.brand b LEFT JOIN p.category c " +
+            "WHERE (:status IS NULL OR (p.status = :status AND (c IS NULL OR c.status != com.techstore.product_service.entity.CategoryStatus.HIDDEN))) " +
             "AND (:keyword IS NULL OR :keyword = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND (:category IS NULL OR :category = '' OR LOWER(p.category.name) = LOWER(:category))")
+            "AND (:category IS NULL OR :category = '' OR LOWER(c.name) = LOWER(:category)) " +
+            "AND (:brand IS NULL OR :brand = '' OR LOWER(b.name) = LOWER(:brand))")
     Page<Product> searchAndFilterProducts(
             @Param("keyword") String keyword,
             @Param("category") String category,
+            @Param("brand") String brand,
             @Param("status") ProductStatus status,
             Pageable pageable);
 

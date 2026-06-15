@@ -17,4 +17,5 @@ public class ProductRequest {
     private String description;
     private Long categoryId;
     private Integer stockQuantity;
+    private Long brandId;
 }

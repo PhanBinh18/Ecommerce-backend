@@ -2,7 +2,7 @@ package com.techstore.product_service.controller;
 
 import com.techstore.product_service.dto.*;
 import com.techstore.product_service.service.ProductImageService;
-import com.techstore.product_service.service.ProductService;
+import com.techstore.product_service.service.ProductServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,7 +16,7 @@ import java.util.List;
 @RequestMapping("/api/v1")
 public class ProductController {
 
-    private final ProductService productService;
+    private final ProductServiceImpl productServiceImpl;
     private final ProductImageService productImageService;
 
     // -----------------------
@@ -32,7 +32,7 @@ public class ProductController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String brand) {
 
-        ProductPageResponse<ProductResponse> data = productService.getProducts(page, size, sortType, keyword, category, brand);
+        ProductPageResponse<ProductResponse> data = productServiceImpl.getProducts(page, size, sortType, keyword, category, brand);
         ApiResponse<ProductPageResponse<ProductResponse>> res = ApiResponse.<ProductPageResponse<ProductResponse>>builder()
                 .status("SUCCESS")
                 .message("Lấy danh sách sản phẩm thành công")
@@ -44,7 +44,7 @@ public class ProductController {
 
     @GetMapping("/products/{id}")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> getProductById(@PathVariable Long id) {
-        ProductDetailResponse data = productService.getProductById(id);
+        ProductDetailResponse data = productServiceImpl.getProductById(id);
         ApiResponse<ProductDetailResponse> res = ApiResponse.<ProductDetailResponse>builder()
                 .status("SUCCESS")
                 .message("Lấy chi tiết sản phẩm thành công")
@@ -61,7 +61,7 @@ public class ProductController {
 
     @PostMapping("/admin/products")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> createProduct(@RequestBody ProductRequest request) {
-        ProductDetailResponse data = productService.createProduct(request);
+        ProductDetailResponse data = productServiceImpl.createProduct(request);
         ApiResponse<ProductDetailResponse> res = ApiResponse.<ProductDetailResponse>builder()
                 .status("SUCCESS")
                 .message("Tạo sản phẩm thành công")
@@ -73,7 +73,7 @@ public class ProductController {
 
     @PutMapping("/admin/products/{id}")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> updateProduct(@PathVariable Long id, @RequestBody ProductRequest request) {
-        ProductDetailResponse data = productService.updateProduct(id, request);
+        ProductDetailResponse data = productServiceImpl.updateProduct(id, request);
         ApiResponse<ProductDetailResponse> res = ApiResponse.<ProductDetailResponse>builder()
                 .status("SUCCESS")
                 .message("Cập nhật sản phẩm thành công")
@@ -85,7 +85,7 @@ public class ProductController {
 
     @DeleteMapping("/admin/products/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable Long id) {
-        productService.deleteProduct(id);
+        productServiceImpl.deleteProduct(id);
         ApiResponse<Void> res = ApiResponse.<Void>builder()
                 .status("SUCCESS")
                 .message("Đã xóa mềm (soft delete) sản phẩm")

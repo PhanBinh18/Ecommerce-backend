@@ -48,6 +48,10 @@ public class Product {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "brand_id") // Sẽ tự tạo cột brand_id làm khóa ngoại trong bảng products
+    private Brand brand;
+
     // 1 product có nhiều images
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
