@@ -14,4 +14,6 @@ public class AddressRequest {
     private String phoneNumber;
     private String shippingAddress;
     private Boolean isDefault;
+    private Double latitude;
+    private Double longitude;
 }

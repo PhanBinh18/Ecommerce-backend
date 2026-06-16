@@ -117,6 +117,8 @@ public class UserService {
         addr.setReceiverName(request.getReceiverName());
         addr.setPhoneNumber(request.getPhoneNumber());
         addr.setShippingAddress(request.getShippingAddress());
+        addr.setLatitude(request.getLatitude());
+        addr.setLongitude(request.getLongitude());
         addr.setDefault(Boolean.TRUE.equals(request.getIsDefault()));
         addr.setUser(user);
 
@@ -146,6 +148,8 @@ public class UserService {
         if (request.getReceiverName() != null) addr.setReceiverName(request.getReceiverName());
         if (request.getPhoneNumber() != null) addr.setPhoneNumber(request.getPhoneNumber());
         if (request.getShippingAddress() != null) addr.setShippingAddress(request.getShippingAddress());
+        if (request.getLatitude() != null) addr.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) addr.setLongitude(request.getLongitude());
 
         Boolean reqDefault = request.getIsDefault();
         if (reqDefault != null) {
@@ -184,6 +188,8 @@ public class UserService {
                 .receiverName(address.getReceiverName())
                 .phoneNumber(address.getPhoneNumber())
                 .shippingAddress(address.getShippingAddress())
+                .latitude(address.getLatitude())
+                .longitude(address.getLongitude())
                 .isDefault(address.isDefault())
                 .createdAt(address.getCreatedAt())
                 .build();

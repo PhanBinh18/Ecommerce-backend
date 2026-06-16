@@ -42,4 +42,10 @@ public class Address {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "latitude", columnDefinition = "DECIMAL(10,8)")
+    private Double latitude;
+
+    @Column(name = "longitude", columnDefinition = "DECIMAL(11,8)")
+    private Double longitude;
 }

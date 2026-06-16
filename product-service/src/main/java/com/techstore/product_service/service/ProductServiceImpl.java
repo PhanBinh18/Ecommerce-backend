@@ -255,11 +255,20 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
 
     private ProductResponse toProductResponse(Product p) {
         String thumbnail = null;
-        Optional<ProductImage> thumb = productImageRepository.findByProductIdAndIsThumbnailTrue(p.getId());
-        if (thumb.isPresent()) thumbnail = thumb.get().getUrl();
+
+        // Tận dụng danh sách ảnh đã lấy lên cùng Product, không gọi thêm Repository để tránh N+1 Query
+        if (p.getImages() != null && !p.getImages().isEmpty()) {
+            thumbnail = p.getImages().stream()
+                    // Ưu tiên 1: Tìm ảnh được đánh dấu là thumbnail
+                    .filter(img -> Boolean.TRUE.equals(img.getIsThumbnail()))
+                    .map(ProductImage::getUrl)
+                    .findFirst()
+                    // Ưu tiên 2 (Kế hoạch dự phòng): Nếu không có, lấy luôn URL của bức ảnh đầu tiên trong mảng
+                    .orElse(p.getImages().stream().findFirst().map(ProductImage::getUrl).orElse(null));
+        }
 
         String categoryName = p.getCategory() != null ? p.getCategory().getName() : null;
-        String brandName = p.getBrand() != null ? p.getBrand().getName() : null; // Lấy tên Brand
+        String brandName = p.getBrand() != null ? p.getBrand().getName() : null;
 
         return ProductResponse.builder()
                 .id(p.getId())
@@ -267,8 +276,8 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
                 .price(p.getPrice())
                 .stockQuantity(p.getStockQuantity())
                 .categoryName(categoryName)
-                .brandName(brandName) // Gắn vào DTO (BẠN CẦN BỔ SUNG TRƯỜNG NÀY VÀO ProductResponse.java)
-                .thumbnail(thumbnail)
+                .brandName(brandName)
+                .thumbnail(thumbnail) // <--- Chắc chắn sẽ có link nếu sản phẩm có ảnh
                 .build();
     }
 

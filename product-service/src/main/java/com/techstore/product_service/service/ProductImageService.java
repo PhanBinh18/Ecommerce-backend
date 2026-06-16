@@ -35,6 +35,9 @@ public class ProductImageService {
 
         List<ProductImage> savedImages = new ArrayList<>();
 
+        // Kiểm tra xem sản phẩm này đã có ảnh nào chưa
+        boolean shouldBeThumbnail = product.getImages().isEmpty();
+
         for (MultipartFile file : files) {
             Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.emptyMap());
             String secureUrl = uploadResult.get("secure_url").toString();
@@ -42,19 +45,16 @@ public class ProductImageService {
             ProductImage image = ProductImage.builder()
                     .product(product)
                     .url(secureUrl)
-                    .isThumbnail(false)
+                    .isThumbnail(shouldBeThumbnail) // Gán true cho ảnh đầu tiên
                     .build();
 
-            ProductImage saved = productImageRepository.save(image);
+            shouldBeThumbnail = false; // Các ảnh sau trong cùng 1 lần up sẽ là false
 
-            // Also add to product.images set (optional)
+            ProductImage saved = productImageRepository.save(image);
             product.getImages().add(saved);
             savedImages.add(saved);
         }
-
-        // Persist product to update relationship if needed
         productRepository.save(product);
-
         return savedImages;
     }
 

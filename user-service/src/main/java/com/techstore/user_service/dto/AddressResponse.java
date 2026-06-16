@@ -18,4 +18,6 @@ public class AddressResponse {
     private String shippingAddress;
     private Boolean isDefault;
     private LocalDateTime createdAt;
+    private Double latitude;
+    private Double longitude;
 }
