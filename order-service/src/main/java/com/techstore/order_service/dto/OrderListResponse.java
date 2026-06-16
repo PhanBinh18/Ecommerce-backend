@@ -1,5 +1,6 @@
 package com.techstore.order_service.dto;
 
+import com.techstore.order_service.entity.OrderStatus;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,4 +16,8 @@ public class OrderListResponse {
     private String firstProductName;
     private BigDecimal totalPrice;
     private LocalDateTime createdAt;
+
+    private OrderStatus status;
+    private String receiverName;
+    private String paymentMethod;
 }

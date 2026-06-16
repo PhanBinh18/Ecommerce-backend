@@ -38,4 +38,6 @@ public interface ProductService {
 
     void cancelOrderItems(List<com.techstore.product_service.event.OrderItemEvent> items, Boolean isTimeout);
 
+    // ĐÃ THÊM: Hàm cộng lại kho khi hủy đơn
+    void increaseStock(Long productId, int quantity);
 }

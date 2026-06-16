@@ -316,4 +316,16 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
                 .createdAt(p.getCreatedAt())
                 .build();
     }
+
+    @Override
+    @Transactional
+    public void increaseStock(Long productId, int quantity) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Product not found: " + productId));
+
+        // Cộng trả lại số lượng vào kho
+        product.setStockQuantity(product.getStockQuantity() + quantity);
+        productRepository.save(product);
+        System.out.println("🔙 Restored stock: Product #" + productId + ", Qty: +" + quantity);
+    }
 }

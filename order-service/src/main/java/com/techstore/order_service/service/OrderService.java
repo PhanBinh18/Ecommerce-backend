@@ -415,6 +415,9 @@ public class OrderService {
                 .firstProductName(firstName)
                 .totalPrice(order.getTotalPrice())
                 .createdAt(order.getCreatedAt())
+                .status(order.getStatus())
+                .receiverName(order.getReceiverName())
+                .paymentMethod(order.getPaymentMethod())
                 .build();
     }
 

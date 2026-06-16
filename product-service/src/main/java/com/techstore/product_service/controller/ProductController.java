@@ -134,4 +134,21 @@ public class ProductController {
             return ResponseEntity.status(500).body(res);
         }
     }
+
+    @PutMapping("/products/{id}/increase-stock")
+    public ResponseEntity<ApiResponse<Void>> increaseStock(
+            @PathVariable("id") Long id,
+            @RequestParam("quantity") int quantity) {
+
+        productServiceImpl.increaseStock(id, quantity);
+
+        // Gói kết quả vào ApiResponse để khớp với FeignClient bên Order Service
+        ApiResponse<Void> res = ApiResponse.<Void>builder()
+                .status("SUCCESS")
+                .message("Phục hồi số lượng kho thành công")
+                .data(null)
+                .build();
+
+        return ResponseEntity.ok(res);
+    }
 }
