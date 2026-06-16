@@ -53,7 +53,7 @@ public class CategoryServiceImpl implements CategoryService {
      * Create category. Evict cache for categories list.
      */
     @Transactional
-    @CacheEvict(value = "categories", allEntries = true)
+    @CacheEvict(value = {"categories", "products"}, allEntries = true)
     @Override
     public CategoryResponse createCategory(CategoryRequest request) {
         Category c = Category.builder()
@@ -68,7 +68,7 @@ public class CategoryServiceImpl implements CategoryService {
      * Update name. Evict cache.
      */
     @Transactional
-    @CacheEvict(value = "categories", allEntries = true)
+    @CacheEvict(value = {"categories", "products"}, allEntries = true)
     @Override
     public CategoryResponse updateCategory(Long id, CategoryRequest request) {
         Category cat = categoryRepository.findById(id)
@@ -82,7 +82,7 @@ public class CategoryServiceImpl implements CategoryService {
      * Hide category (soft delete): set status = HIDDEN. Evict cache.
      */
     @Transactional
-    @CacheEvict(value = "categories", allEntries = true)
+    @CacheEvict(value = {"categories", "products"}, allEntries = true)
     @Override
     public CategoryResponse hideCategory(Long id) { // Giữ nguyên tên hàm cho đỡ phải sửa nhiều
         Category cat = categoryRepository.findById(id)

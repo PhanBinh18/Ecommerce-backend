@@ -12,7 +12,7 @@ public interface ProductService {
     // ======================
     // Public APIs
     // ======================
-    ProductPageResponse<ProductResponse> getProducts(int page, int size, String sortType, String keyword, String category, String brand);
+    ProductPageResponse<ProductResponse> getProducts(int page, int size, String sortType, String keyword, Long categoryId, Long brandId);
 
     ProductDetailResponse getProductById(Long id);
 

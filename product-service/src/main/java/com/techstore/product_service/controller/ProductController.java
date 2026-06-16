@@ -29,10 +29,12 @@ public class ProductController {
             @RequestParam(defaultValue = "12") int size,
             @RequestParam(required = false) String sortType,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) String brand) {
+            @RequestParam(required = false, value = "category") Long categoryId, // ĐÃ SỬA: Đổi sang Long
+            @RequestParam(required = false, value = "brand") Long brandId) {     // ĐÃ SỬA: Đổi sang Long
 
-        ProductPageResponse<ProductResponse> data = productServiceImpl.getProducts(page, size, sortType, keyword, category, brand);
+        // ĐÃ SỬA: Truyền categoryId và brandId vào Service
+        ProductPageResponse<ProductResponse> data = productServiceImpl.getProducts(page, size, sortType, keyword, categoryId, brandId);
+
         ApiResponse<ProductPageResponse<ProductResponse>> res = ApiResponse.<ProductPageResponse<ProductResponse>>builder()
                 .status("SUCCESS")
                 .message("Lấy danh sách sản phẩm thành công")

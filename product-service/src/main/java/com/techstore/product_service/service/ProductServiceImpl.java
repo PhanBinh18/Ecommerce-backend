@@ -42,7 +42,7 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
 
     @Override
     @Cacheable(value = "products")
-    public ProductPageResponse<ProductResponse> getProducts(int page, int size, String sortType, String keyword, String category, String brand) {
+    public ProductPageResponse<ProductResponse> getProducts(int page, int size, String sortType, String keyword, Long categoryId, Long brandId) {
         Sort sort = Sort.by(Sort.Direction.DESC, "id");
         if (sortType != null && !sortType.isEmpty()) {
             switch (sortType) {
@@ -65,9 +65,7 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        // LƯU Ý: Đã truyền thêm tham số 'brand' vào hàm này.
-        // Bạn cần vào ProductRepository cập nhật lại câu @Query để nó lọc thêm theo brand.name nhé!
-        Page<Product> productPage = productRepository.searchAndFilterProducts(keyword, category, brand, ProductStatus.ACTIVE, pageable);
+        Page<Product> productPage = productRepository.searchAndFilterProducts(keyword, categoryId, brandId, ProductStatus.ACTIVE, pageable);
 
         List<ProductResponse> content = productPage.getContent().stream()
                 .map(this::toProductResponse)
