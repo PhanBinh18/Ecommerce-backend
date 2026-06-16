@@ -226,19 +226,10 @@ public class CartController {
     ) {
         Long userId = getCurrentUserId();
         if (userId != null) {
-            Optional<Cart> cartOpt = cartRepository.findByUserId(userId);
-            if (cartOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("ERROR", "Cart not found", null));
-            }
-            Cart cart = cartOpt.get();
-            Optional<CartItem> ciOpt = cart.getItems().stream()
-                    .filter(ci -> Objects.equals(ci.getProductId(), productId))
-                    .findFirst();
-            if (ciOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("ERROR", "Item not found in cart", null));
-            }
-            CartItem ci = ciOpt.get();
-            cartService.removeItem(ci.getId());
+            // ĐÃ SỬA: Gọi trực tiếp hàm xóa mới tạo trong Service
+            cartService.removeProductFromUserCart(userId, productId);
+
+            // Lấy lại giỏ hàng mới nhất trả về cho Frontend
             CartDto dto = cartService.getCartByUserId(userId);
             CartResponse resp = toCartResponseFromCartDto(dto);
             return ResponseEntity.ok(new ApiResponse<>("SUCCESS", "Item removed", resp));

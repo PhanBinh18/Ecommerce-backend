@@ -225,9 +225,19 @@ public class CartService {
         return mapToDto(cartItem.getCart());
     }
 
+    // ĐÃ SỬA: Cách xóa chuẩn JPA (Xóa từ Parent)
     @Transactional
-    public void removeItem(Long itemId) {
-        cartItemRepository.deleteById(itemId);
+    public void removeProductFromUserCart(Long userId, Long productId) {
+        Cart cart = getCartEntity(userId);
+
+        // Bứt CartItem ra khỏi danh sách của Cart
+        boolean removed = cart.getItems().removeIf(item -> item.getProductId().equals(productId));
+
+        if (removed) {
+            cart.setUpdatedAt(LocalDateTime.now());
+            // Lưu Cart lại, Hibernate sẽ tự hiểu là phải xóa cái Item bị bứt ra khỏi DB (nhờ orphanRemoval)
+            cartRepository.save(cart);
+        }
     }
 
     @Transactional
