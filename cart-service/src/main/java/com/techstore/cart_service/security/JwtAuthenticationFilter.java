@@ -54,30 +54,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Parse & validate JWT
             Claims claims = parseJwt(jwt);
             if (claims != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                // Extract userId from claims
                 Long userId = extractUserId(claims);
                 List<String> rolesList = extractRoles(claims);
 
                 if (userId != null) {
-                    // Convert roles to GrantedAuthority
                     List<GrantedAuthority> authorities = rolesList.stream()
                             .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
                             .collect(Collectors.toList());
-
-                    // Create authentication token with userId as principal
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
-                                    userId,      // Principal = userId (Long)
-                                    null,        // Credentials = null (JWT is already verified)
-                                    authorities  // Authorities from token
+                                    userId,
+                                    null,
+                                    authorities
                             );
-
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
         } catch (JwtException | IllegalArgumentException e) {
-            // Token invalid or malformed, log and continue (let controller decide if auth required)
             logger.debug("JWT validation failed: " + e.getMessage());
         } catch (Exception e) {
             logger.error("Unexpected error during JWT authentication: " + e.getMessage());
@@ -88,7 +82,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /**
      * Parse JWT token using HS256 (HMAC with SHA-256).
-     * @param token JWT token (without "Bearer " prefix)
+     * @param token JWT token
      * @return Claims if valid, null if not valid
      */
     private Claims parseJwt(String token) {
@@ -125,7 +119,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Extract roles from JWT claims (expected to be List<String> or String).
+     * Extract roles from JWT claims
      * @param claims JWT claims
      * @return List of role strings, or empty list if not found
      */

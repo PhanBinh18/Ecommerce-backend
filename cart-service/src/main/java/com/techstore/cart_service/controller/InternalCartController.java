@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * Internal endpoints for other services (Order Service) to operate on carts.
- * These endpoints are permitted at service-level; API Gateway / network should enforce auth in production.
  */
 @RestController
 @RequestMapping("/api/v1/internal/carts")
@@ -19,7 +18,6 @@ public class InternalCartController {
 
     /**
      * DELETE /api/v1/internal/carts/clear?userId={userId}
-     * Clears the cart for the given user (DB).
      */
     @DeleteMapping("/clear")
     public ResponseEntity<ApiResponse<String>> clearUserCart(@RequestParam Long userId) {

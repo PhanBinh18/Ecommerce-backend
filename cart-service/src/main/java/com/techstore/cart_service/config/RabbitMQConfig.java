@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
 
     public static final String EXCHANGE_NAME = "order_fanout_exchange";
-    public static final String CART_QUEUE = "cart_queue"; // Hòm thư riêng cho Cart
+    public static final String CART_QUEUE = "cart_queue";
 
     @Bean
     public FanoutExchange orderExchange() {
@@ -25,7 +25,6 @@ public class RabbitMQConfig {
         return new Queue(CART_QUEUE, true);
     }
 
-    // Nối hòm thư Cart vào chung cái Loa Phường với Product
     @Bean
     public Binding bindingCartQueue(Queue cartQueue, FanoutExchange orderExchange) {
         return BindingBuilder.bind(cartQueue).to(orderExchange);

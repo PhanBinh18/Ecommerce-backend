@@ -18,20 +18,13 @@ public class CartItem {
     @JoinColumn(name = "cart_id")
     @JsonIgnore
     private Cart cart;
-
-    // Reference to product by id (soft link)
     private Long productId;
-
-    // Quantity in cart
     private Integer quantity;
-
-    // Snapshot fields (store product details at time of add/merge)
+    // Snapshot fields
     private String productName;
     private String thumbnailUrl;
-
     @Column(precision = 19, scale = 2)
     private BigDecimal price;
-
     @Column(precision = 19, scale = 2)
     private BigDecimal subTotal;
 }

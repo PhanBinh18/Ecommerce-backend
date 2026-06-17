@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ApiResponse<T> {
-    private String status;      // e.g. "success" or "error"
+    private String status;
     private String message;
     private T data;
     private LocalDateTime timestamp = LocalDateTime.now();

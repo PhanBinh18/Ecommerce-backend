@@ -21,20 +21,13 @@ public class CartService {
 
     @Autowired
     private CartRepository cartRepository;
-
     @Autowired
     private CartItemRepository cartItemRepository;
-
     @Autowired
     private ProductClient productClient;
-
     @Autowired
     private GuestCartService guestCartService;
 
-    // =================================================================
-    // HÀM BỔ TRỢ: Chuyển đổi từ Cart (Entity) sang CartDto (Gửi về React)
-    // Sử dụng snapshot fields (không gọi Product Service)
-    // =================================================================
     private CartDto mapToDto(Cart cart) {
         CartDto dto = new CartDto();
         dto.setId(cart.getId());
@@ -58,7 +51,6 @@ public class CartService {
         return dto;
     }
 
-    // Hàm nội bộ dùng để thao tác với DB
     private Cart getCartEntity(Long userId) {
         return cartRepository.findByUserId(userId)
                 .orElseGet(() -> {
@@ -68,21 +60,16 @@ public class CartService {
                 });
     }
 
-    // Lấy giỏ hàng (Trả về DTO)
     public CartDto getCartByUserId(Long userId) {
         Cart cart = getCartEntity(userId);
         return mapToDto(cart);
     }
 
-    // Giữ nguyên để không phá vỡ controller hiện tại (nếu controller vẫn gọi qua CartRequest)
     @Transactional
     public CartDto addToCart(Long userId, com.techstore.cart_service.dto.CartRequest request) {
         return addToCart(userId, request.getProductId(), request.getQuantity());
     }
 
-    /**
-     * Thêm sản phẩm vào giỏ MySQL của user, lưu snapshot từ Product Service.
-     */
     @Transactional
     public CartDto addToCart(Long userId, Long productId, int quantity) {
         if (quantity <= 0) throw new IllegalArgumentException("Quantity must be > 0");
@@ -166,7 +153,6 @@ public class CartService {
                 CartItem existing = existingOpt.get();
                 int newQty = existing.getQuantity() + (gItem.getQuantity() == null ? 0 : gItem.getQuantity());
                 existing.setQuantity(newQty);
-                // update snapshot fields from guest item (guest snapshot should be used)
                 existing.setProductName(gItem.getProductName());
                 existing.setThumbnailUrl(gItem.getThumbnailUrl());
                 if (gItem.getPrice() != null) {
@@ -214,28 +200,21 @@ public class CartService {
     public CartDto updateItemQuantity(Long itemId, int quantity) {
         CartItem cartItem = cartItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm này trong giỏ!"));
-
         cartItem.setQuantity(quantity);
         // recompute subTotal if price present
         if (cartItem.getPrice() != null) {
             cartItem.setSubTotal(cartItem.getPrice().multiply(BigDecimal.valueOf(quantity)));
         }
         cartItemRepository.save(cartItem);
-
         return mapToDto(cartItem.getCart());
     }
 
-    // ĐÃ SỬA: Cách xóa chuẩn JPA (Xóa từ Parent)
     @Transactional
     public void removeProductFromUserCart(Long userId, Long productId) {
         Cart cart = getCartEntity(userId);
-
-        // Bứt CartItem ra khỏi danh sách của Cart
         boolean removed = cart.getItems().removeIf(item -> item.getProductId().equals(productId));
-
         if (removed) {
             cart.setUpdatedAt(LocalDateTime.now());
-            // Lưu Cart lại, Hibernate sẽ tự hiểu là phải xóa cái Item bị bứt ra khỏi DB (nhờ orphanRemoval)
             cartRepository.save(cart);
         }
     }

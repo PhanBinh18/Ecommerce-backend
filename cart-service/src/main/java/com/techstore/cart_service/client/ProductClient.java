@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 /**
  * Feign client to Product Service.
- * Must match Product Service contract: GET /api/v1/products/{id} -> ApiResponse<ProductDetailResponse>
  */
 @FeignClient(name = "product-service")
 public interface ProductClient {

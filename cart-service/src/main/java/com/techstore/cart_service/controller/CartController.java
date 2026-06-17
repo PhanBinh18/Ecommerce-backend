@@ -112,7 +112,6 @@ public class CartController {
 
     /**
      * POST /api/v1/carts/items
-     * Add item (user or guest)
      */
     @PostMapping("/items")
     public ResponseEntity<ApiResponse<CartResponse>> addItem(
@@ -121,7 +120,6 @@ public class CartController {
     ) {
         Long userId = getCurrentUserId();
         if (userId != null) {
-            // add to DB cart
             try {
                 CartDto dto = cartService.addToCart(userId, request.getProductId(), request.getQuantity());
                 CartResponse resp = toCartResponseFromCartDto(dto);
@@ -132,7 +130,7 @@ public class CartController {
         }
 
         if (guestUuid != null && !guestUuid.isBlank()) {
-            // For guest, we need product detail to snapshot
+            // snapshot
             ApiResponse<ProductDetailResponse> productResp;
             try {
                 productResp = productClient.getProductById(request.getProductId());
@@ -179,7 +177,6 @@ public class CartController {
 
         Long userId = getCurrentUserId();
         if (userId != null) {
-            // find cart item id by productId
             Optional<Cart> cartOpt = cartRepository.findByUserId(userId);
             if (cartOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>("ERROR", "Cart not found", null));
@@ -226,10 +223,8 @@ public class CartController {
     ) {
         Long userId = getCurrentUserId();
         if (userId != null) {
-            // ĐÃ SỬA: Gọi trực tiếp hàm xóa mới tạo trong Service
             cartService.removeProductFromUserCart(userId, productId);
 
-            // Lấy lại giỏ hàng mới nhất trả về cho Frontend
             CartDto dto = cartService.getCartByUserId(userId);
             CartResponse resp = toCartResponseFromCartDto(dto);
             return ResponseEntity.ok(new ApiResponse<>("SUCCESS", "Item removed", resp));

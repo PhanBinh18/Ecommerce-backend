@@ -17,7 +17,7 @@ import java.util.Map;
 @Service
 public class GuestCartService {
 
-    private static final String KEY_PREFIX = "cart:guest:"; // full key: cart:guest:{guestUuid}
+    private static final String KEY_PREFIX = "cart:guest:";
     private static final Duration TTL = Duration.ofDays(7);
 
     private final RedisTemplate<String, Object> redisTemplate;

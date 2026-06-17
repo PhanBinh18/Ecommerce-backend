@@ -10,7 +10,6 @@ public class SecurityUtils {
     public static Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        // Kiểm tra xem Principal có phải là Long (userId) mà ta đã nhét vào ở Filter không
         if (authentication != null && authentication.getPrincipal() instanceof Long) {
             return (Long) authentication.getPrincipal();
         }
