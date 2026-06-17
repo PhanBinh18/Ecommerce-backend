@@ -32,9 +32,6 @@ public class VNPayConfig {
     @Value("${vnpay.command}")
     private String vnp_Command;
 
-    // --- CÁC HÀM TIỆN ÍCH CHUẨN CỦA VNPAY ---
-
-    // Hàm mã hóa chữ ký (Hash)
     public String hmacSHA512(final String key, final String data) {
         try {
             if (key == null || data == null) {
@@ -56,7 +53,6 @@ public class VNPayConfig {
         }
     }
 
-    // Hàm lấy IP của khách hàng (Bắt buộc truyền cho VNPay)
     public String getIpAddress(HttpServletRequest request) {
         String ipAdress;
         try {
@@ -70,7 +66,6 @@ public class VNPayConfig {
         return ipAdress;
     }
 
-    // Hàm sinh mã giao dịch ngẫu nhiên
     public String getRandomNumber(int len) {
         Random rnd = new Random();
         String chars = "0123456789";

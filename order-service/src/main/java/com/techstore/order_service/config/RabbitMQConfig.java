@@ -68,9 +68,7 @@ public class RabbitMQConfig {
     @Bean
     public Queue orderExpiryQueue() {
         Map<String, Object> args = new HashMap<>();
-        // TTL = 10 minutes = 600000 ms
         args.put("x-message-ttl", 600000);
-        // dead letter to DLX
         args.put("x-dead-letter-exchange", ORDER_EXPIRY_DLX);
         args.put("x-dead-letter-routing-key", ORDER_EXPIRY_ROUTING_KEY);
         return new Queue(ORDER_EXPIRY_QUEUE, true, false, false, args);

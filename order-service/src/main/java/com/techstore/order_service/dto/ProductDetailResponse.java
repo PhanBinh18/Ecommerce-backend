@@ -19,7 +19,7 @@ public class ProductDetailResponse {
     private BigDecimal price;
     private Integer stockQuantity;
     private Long categoryId;
-    private String categoryName; // Có thể null nếu bạn chưa join bảng
+    private String categoryName;
     private String thumbnailUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -29,11 +29,9 @@ public class SecurityConfig {
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // Bắt buộc có token khi gọi vào /api/carts
                         .requestMatchers("/api/carts/**").authenticated()
                         .anyRequest().permitAll()
                 )
-                // Cắm filter vào
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

@@ -21,7 +21,6 @@ public class PaymentTransaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Many PaymentTransaction -> One Order
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")
     private Order order;
@@ -32,11 +31,11 @@ public class PaymentTransaction {
     @Column(precision = 19, scale = 2)
     private BigDecimal amount;
 
-    private String status;        // ví dụ: PENDING, SUCCESS, FAILED
-    private String paymentMethod; // VNPay, COD, MOMO...
-    private String responseCode;  // code trả về từ cổng thanh toán
+    private String status;
+    private String paymentMethod;
+    private String responseCode;
     @Column(length = 1000)
-    private String message;       // thông tin bổ sung
+    private String message;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

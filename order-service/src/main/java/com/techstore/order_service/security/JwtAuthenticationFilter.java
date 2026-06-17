@@ -19,7 +19,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
 
-    // ĐÃ XÓA UserDetailsService
 
     public JwtAuthenticationFilter(JwtService jwtService) {
         this.jwtService = jwtService;
@@ -40,14 +39,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String jwt = authHeader.substring(7);
 
-        // Chỉ cần Token đúng chữ ký và còn hạn
         if (jwtService.isTokenValid(jwt) && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            // Moi userId ra khỏi Token
             Long userId = jwtService.extractUserId(jwt);
 
             if (userId != null) {
-                // Nhét thẳng userId vào làm "Principal" (Chủ thể), không cần Object User nữa
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userId, // Principal bây giờ chỉ là một con số Long
                         null,

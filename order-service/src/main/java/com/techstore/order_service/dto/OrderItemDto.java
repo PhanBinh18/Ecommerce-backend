@@ -10,8 +10,8 @@ import java.math.BigDecimal;
 public class OrderItemDto {
     private Long productId;
     private String productName;
-    private String productImage;   // snapshot ảnh sản phẩm
-    private BigDecimal price;      // Giá tại thời điểm mua
+    private String productImage;
+    private BigDecimal price;
     private Integer quantity;
-    private BigDecimal subTotal;   // price * quantity
+    private BigDecimal subTotal;
 }

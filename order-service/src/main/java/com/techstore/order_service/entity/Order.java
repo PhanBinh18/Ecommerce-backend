@@ -24,17 +24,15 @@ public class Order {
 
     private Long userId;
 
-    // Snapshot: thông tin giao hàng tại thời điểm đặt
-    private String receiverName;    // Tên người nhận
-    private String phoneNumber;     // Số điện thoại
-    private String shippingAddress; // Địa chỉ giao hàng
+    private String receiverName;
+    private String phoneNumber;
+    private String shippingAddress;
 
-    private String paymentMethod;   // Phương thức thanh toán
-    private String note;            // Ghi chú đơn hàng (snapshot)
+    private String paymentMethod;
+    private String note;
 
     @Column(unique = true)
-    private String orderCode;       // Mã đơn hàng (unique)
-
+    private String orderCode;
     private BigDecimal totalPrice;
 
     @Enumerated(EnumType.STRING)

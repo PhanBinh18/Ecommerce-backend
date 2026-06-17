@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
-    // Tự động generate câu SQL: SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC
     List<Order> findByUserIdOrderByIdDesc(Long userId);
 
     Optional<Order> findByOrderCode(String orderCode);

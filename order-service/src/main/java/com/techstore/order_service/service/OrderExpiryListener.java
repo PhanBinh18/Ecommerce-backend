@@ -24,7 +24,6 @@ public class OrderExpiryListener {
         Long orderId = event.getOrderId();
         log.info("Received OrderExpiryEvent for orderId={}", orderId);
         try {
-            // Truyền null cho tham số currentUserId để đánh dấu là Hệ thống tự hủy
             orderService.cancelOrder(orderId, null, "TIMEOUT");
             log.info("Successfully cancelled expired order {}", orderId);
         } catch (Exception e) {

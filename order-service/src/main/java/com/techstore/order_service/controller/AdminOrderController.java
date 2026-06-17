@@ -30,7 +30,6 @@ public class AdminOrderController {
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
 
-        // Gọi Service lấy custom DTO
         OrderPageResponse pageResult = orderService.getAllOrdersForAdmin(pageable, status);
 
         return ResponseEntity.ok(ApiResponse.<OrderPageResponse>builder()
@@ -44,7 +43,6 @@ public class AdminOrderController {
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<OrderDetailResponse>> detail(@PathVariable Long id) {
         try {
-            // Admin truyền userId = null để bypass bước kiểm tra quyền sở hữu đơn hàng
             OrderDetailResponse detail = orderService.getOrderDetail(id, null);
 
             return ResponseEntity.ok(ApiResponse.<OrderDetailResponse>builder()

@@ -10,7 +10,6 @@ import java.util.Optional;
 @Repository
 public interface PaymentTransactionRepository extends JpaRepository<PaymentTransaction, Long> {
 
-    // Tìm tất cả payment transaction thuộc 1 order (Spring Data sẽ dịch orderId -> order.id)
     List<PaymentTransaction> findByOrderId(Long orderId);
 
     Optional<PaymentTransaction> findByTransactionCode(String transactionCode);

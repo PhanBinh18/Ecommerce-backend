@@ -19,7 +19,6 @@ public class OrderItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Tránh đệ quy khi serialize
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")
     @JsonIgnore
@@ -27,7 +26,6 @@ public class OrderItem {
 
     private Long productId;
 
-    // Snapshot thông tin sản phẩm tại thời điểm mua
     private String productName;
     private String productImage;
 
@@ -37,5 +35,5 @@ public class OrderItem {
     private Integer quantity;
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal subTotal; // price * quantity (lưu cứng)
+    private BigDecimal subTotal;
 }

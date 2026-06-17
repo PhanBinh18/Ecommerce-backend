@@ -17,7 +17,6 @@ public class FeignConfig {
                 HttpServletRequest request = attributes.getRequest();
                 String authorizationHeader = request.getHeader("Authorization");
                 if (authorizationHeader != null) {
-                    // Chép y nguyên thẻ Token của User chuyển tiếp sang Cart/Product Service
                     requestTemplate.header("Authorization", authorizationHeader);
                 }
             }

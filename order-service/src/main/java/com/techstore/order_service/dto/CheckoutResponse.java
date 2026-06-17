@@ -9,5 +9,5 @@ import lombok.*;
 public class CheckoutResponse {
     private Long orderId;
     private String orderCode;
-    private String paymentUrl; // null nếu không phải VNPay
+    private String paymentUrl;
 }

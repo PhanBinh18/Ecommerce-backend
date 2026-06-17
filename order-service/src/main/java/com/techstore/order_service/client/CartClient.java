@@ -12,11 +12,9 @@ public interface CartClient {
     @GetMapping("/api/v1/carts/")
     ApiResponse<CartResponse> getMyCart();
 
-    // Đã bọc ApiResponse<Void> thay vì void trơn
     @DeleteMapping("/api/v1/carts/clear")
     ApiResponse<Void> clearCart();
 
-    // Đã bọc ApiResponse<Void> thay vì void trơn
     @DeleteMapping("/api/v1/internal/carts/clear")
     ApiResponse<Void> clearCartInternal(@RequestParam("userId") Long userId);
 }

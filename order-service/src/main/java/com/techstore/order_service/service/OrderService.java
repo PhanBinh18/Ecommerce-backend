@@ -109,7 +109,6 @@ public class OrderService {
         List<OrderItem> orderItems = new ArrayList<>();
 
         for (CartItemDto cartItem : cart.getItems()) {
-            // CHUẨN HÓA 2: Bóc hộp ProductDetailResponse
             ApiResponse<ProductDetailResponse> productApiRes = productClient.getProductById(cartItem.getProductId());
             ProductDetailResponse product = (productApiRes != null) ? productApiRes.getData() : null;
 
@@ -137,7 +136,6 @@ public class OrderService {
         Order saved = orderRepository.save(order);
         log.info("Saved order {} (id={}) for user {}", saved.getOrderCode(), saved.getId(), currentUserId);
 
-        // --- FIX: Reload lại đơn hàng từ DB để đảm bảo lấy đủ danh sách items ---
         Order orderForEvent = orderRepository.findById(saved.getId())
                 .orElse(saved);
 
@@ -170,7 +168,6 @@ public class OrderService {
 
         String paymentUrl = null;
         if ("VNPAY".equalsIgnoreCase(request.getPaymentMethod())) {
-            // Gọi hàm sinh URL chuẩn của VNPay (Hàm này ta sẽ viết ở bước 2 bên dưới)
             paymentUrl = createVNPayUrl(saved, vnPayConfig);
             log.info("Generated real VNPAY paymentUrl for order {}: {}", saved.getOrderCode(), paymentUrl);
         }
@@ -219,7 +216,7 @@ public class OrderService {
     }
 
     // -------------------------
-    // Cancel order with reason (Saga Pattern)
+    // Cancel order with reason
     // -------------------------
     @Transactional
     public Order cancelOrder(Long orderId, Long currentUserId, String reason) {
@@ -228,12 +225,10 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng id=" + orderId));
 
-        // 1. Kiểm tra quyền sở hữu đơn hàng
         if (currentUserId != null && !order.getUserId().equals(currentUserId)) {
             throw new RuntimeException("Bạn không có quyền hủy đơn hàng này!");
         }
 
-        // 2. Chặn hủy nếu đơn đã đi quá xa
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.SHIPPING) {
             throw new RuntimeException("Đơn hàng đang giao hoặc đã giao, không thể hủy!");
         }
@@ -241,12 +236,10 @@ public class OrderService {
             throw new RuntimeException("Đơn hàng này đã bị hủy trước đó rồi!");
         }
 
-        // 3. Đổi trạng thái đơn
         order.setStatus(OrderStatus.CANCELLED);
         Order saved = orderRepository.save(order);
         log.info("Order {} set to CANCELLED", orderId);
 
-        // 4. Bắn Event cho Product Service lo việc dọn kho (ĐÃ XÓA Feign Client)
         List<OrderItemEvent> rollbackItems = saved.getItems() == null ? Collections.emptyList()
                 : saved.getItems().stream()
                 .map(i -> new OrderItemEvent(i.getProductId(), i.getQuantity()))
@@ -303,7 +296,6 @@ public class OrderService {
             confirmOrder(order.getId());
         } else {
             log.warn("VNPay payment failed for order {}: responseCode={}", order.getOrderCode(), ipn.getVnp_ResponseCode());
-            // business decision: keep PENDING_UNPAID or take other actions
         }
 
         return savedTx;
@@ -336,7 +328,6 @@ public class OrderService {
         return toDetailResponse(order);
     }
 
-    // NÂNG CẤP: Vừa phân trang (Pageable) vừa lọc theo trạng thái (statusStr)
     public OrderPageResponse getAllOrdersForAdmin(Pageable pageable, String statusStr) {
         Page<Order> page;
         if (statusStr != null && !statusStr.isBlank()) {
@@ -346,10 +337,8 @@ public class OrderService {
             page = orderRepository.findAll(pageable);
         }
 
-        // 1. Chuyển đổi Entity sang DTO List
         List<OrderListResponse> contentList = page.map(this::toListResponse).getContent();
 
-        // 2. Gói vào PageResponse tự custom
         return OrderPageResponse.builder()
                 .content(contentList)
                 .pageNumber(page.getNumber())
@@ -455,10 +444,10 @@ public class OrderService {
     }
 
     // -------------------------
-    // Helper: Tạo URL thanh toán VNPay chuẩn
+    // Helper
     // -------------------------
     private String createVNPayUrl(Order order, com.techstore.order_service.config.VNPayConfig config) {
-        long amount = order.getTotalPrice().longValue() * 100L; // VNPay yêu cầu nhân 100
+        long amount = order.getTotalPrice().longValue() * 100L;
 
         Map<String, String> vnp_Params = new HashMap<>();
         vnp_Params.put("vnp_Version", config.getVnp_Version());
@@ -471,16 +460,14 @@ public class OrderService {
         vnp_Params.put("vnp_OrderType", "other");
         vnp_Params.put("vnp_Locale", "vn");
         vnp_Params.put("vnp_ReturnUrl", config.getVnp_ReturnUrl());
-        vnp_Params.put("vnp_IpAddr", "127.0.0.1"); // Tạm để localhost, nếu có HttpServletRequest thì lấy IP thật
-
+        vnp_Params.put("vnp_IpAddr", "127.0.0.1"); // localhost for testing, in production use real client IP
         Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
         vnp_Params.put("vnp_CreateDate", formatter.format(cld.getTime()));
 
-        cld.add(Calendar.MINUTE, 15); // Thời hạn thanh toán 15 phút
+        cld.add(Calendar.MINUTE, 10);
         vnp_Params.put("vnp_ExpireDate", formatter.format(cld.getTime()));
 
-        // Sắp xếp các tham số theo thứ tự alphabet
         List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
         Collections.sort(fieldNames);
         StringBuilder hashData = new StringBuilder();
@@ -510,7 +497,6 @@ public class OrderService {
             log.error("Error encoding VNPay params: {}", e.getMessage());
         }
 
-        // Tạo chữ ký (Secure Hash)
         String queryUrl = query.toString();
         String vnp_SecureHash = config.hmacSHA512(config.getSecretKey(), hashData.toString());
         queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;

@@ -7,9 +7,9 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class CheckoutRequest {
-    private Long addressId;       // id tham chiếu Address Service
-    private String paymentMethod; // COD / VNPAY / ...
-    private String note;          // Ghi chú đơn hàng
+    private Long addressId;
+    private String paymentMethod;
+    private String note;
     private String receiverName;
     private String phoneNumber;
     private String shippingAddress;

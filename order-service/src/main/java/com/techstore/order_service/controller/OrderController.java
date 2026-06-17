@@ -96,7 +96,6 @@ public class OrderController {
 
         try {
             orderService.handleVNPayCallback(ipn);
-            // VNPay expects simple response; still wrap in ApiResponse
             return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
                     .status("SUCCESS")
                     .message("IPN processed")
@@ -117,10 +116,8 @@ public class OrderController {
             @PathVariable("id") Long id,
             @RequestParam(name = "reason", defaultValue = "Người dùng đổi ý không mua nữa") String reason) {
         try {
-            // Lấy ID của user đang đăng nhập để đảm bảo họ chỉ hủy được đơn của chính mình
             Long currentUserId = SecurityUtils.getCurrentUserId();
 
-            // Gọi hàm xử lý hủy đơn trong OrderService
             orderService.cancelOrder(id, currentUserId, reason);
 
             return ResponseEntity.ok(ApiResponse.<String>builder()
@@ -136,43 +133,4 @@ public class OrderController {
                     .build());
         }
     }
-//
-//    // ==========================================
-//    // ADMIN ENDPOINTS
-//    // ==========================================
-//
-//    // Lấy toàn bộ danh sách đơn hàng (Có thể lọc theo trạng thái)
-//    @GetMapping("/admin/orders")
-//    public ResponseEntity<ApiResponse<java.util.List<OrderListResponse>>> getAllOrdersForAdmin(
-//            @RequestParam(required = false) String status) {
-//        // Bạn cần viết thêm hàm getAllOrdersForAdmin(status) trong OrderService
-//        java.util.List<OrderListResponse> list = orderService.getAllOrdersForAdmin(status);
-//        return ResponseEntity.ok(ApiResponse.<java.util.List<OrderListResponse>>builder()
-//                .status("SUCCESS").message("Lấy danh sách đơn hàng thành công").data(list).build());
-//    }
-//
-//    // Xem chi tiết đơn hàng (Admin xem được của mọi User)
-//    @GetMapping("/admin/orders/{id}")
-//    public ResponseEntity<ApiResponse<OrderDetailResponse>> getOrderDetailForAdmin(@PathVariable("id") Long id) {
-//        // Gọi hàm getOrderDetail hiện tại nhưng truyền tham số để bypass check UserID,
-//        // hoặc viết hàm riêng getOrderDetailForAdmin(id)
-//        OrderDetailResponse detail = orderService.getOrderDetailForAdmin(id);
-//        return ResponseEntity.ok(ApiResponse.<OrderDetailResponse>builder()
-//                .status("SUCCESS").message("Chi tiết đơn hàng").data(detail).build());
-//    }
-//
-//    // Cập nhật trạng thái đơn hàng (Dùng hàm updateOrderStatus bạn đã có)
-//    @PutMapping("/admin/orders/{id}/status")
-//    public ResponseEntity<ApiResponse<String>> updateOrderStatusForAdmin(
-//            @PathVariable("id") Long id,
-//            @RequestParam("status") String status) {
-//        try {
-//            orderService.updateOrderStatus(id, status);
-//            return ResponseEntity.ok(ApiResponse.<String>builder()
-//                    .status("SUCCESS").message("Cập nhật trạng thái thành công").data(status).build());
-//        } catch (Exception e) {
-//            return ResponseEntity.badRequest().body(ApiResponse.<String>builder()
-//                    .status("ERROR").message(e.getMessage()).data(null).build());
-//        }
-//    }
 }
