@@ -1,18 +1,19 @@
 .idea/
+.vscode/
 *.iml
-*.iws
-*.ipr
-
-target/
-build/
-bin/
-
 .DS_Store
-*.log
 
-*.properties
-*.yml
-application-dev.yml
 .env
+.env.local
 
-docker-compose.override.yml
+**/target/
+.mvn/
+mvnw
+mvnw.cmd
+
+**/node_modules/
+**/dist/
+**/build/
+
+*.log
+**/logs/
