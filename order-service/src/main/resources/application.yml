@@ -1,14 +1,14 @@
 server:
-  port: 8084
+  port: ${PORT}
 
 spring:
   application:
     name: order-service
 
   datasource:
-    url: jdbc:mysql://localhost:3307/order_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: root
-    password: 123456
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -21,15 +21,23 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
-      password: 123456
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
 
 eureka:
   instance:
     prefer-ip-address: true
-    ip-address: 127.0.0.1
-
+    ip-address: ${SPRING_CLOUD_CLIENT_IP_ADDRESS}
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_URL}
+
+vnpay:
+  tmn-code: ${VNP_TMN_CODE}
+  hash-secret: ${VNP_HASH_SECRET}
+  url: ${VNP_URL}
+
+  return-url: ${VNP_RETURN_URL}
+  version: "2.1.0"
+  command: "pay"

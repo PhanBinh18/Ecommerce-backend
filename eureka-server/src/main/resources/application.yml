@@ -3,7 +3,7 @@ server:
 
 eureka:
   client:
-    register-with-eureka: false # B�o cho n� bi?t: "M�y l� server, ??ng t? ??ng k� ch�nh m�y"
-    fetch-registry: false       # Kh�ng c?n t?i danh b? t? ai kh�c v� n� ?ang gi? cu?n danh b? g?c
+    register-with-eureka: false
+    fetch-registry: false
   server:
     wait-time-in-ms-when-sync-empty: 0
