@@ -18,9 +18,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-/**
- * Dịch vụ xử lý JWT và blacklist token trên Redis.
- */
+
 @Service
 public class JwtService {
 
@@ -85,7 +83,6 @@ public class JwtService {
     }
 
     private Key getSignInKey() {
-        // 🟢 ĐÃ FIX: Truyền đúng tên biến secretKey viết thường
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
@@ -97,20 +94,12 @@ public class JwtService {
         });
     }
 
-    // --------------------------
     // Redis-based blacklist API
-    // --------------------------
-
-    /**
-     * Blacklist a token by storing its signature part into Redis with TTL equal to remaining life.
-     * Key: auth:blacklist:{token_signature}
-     */
     public void blacklistToken(String token) {
         long remaining = getTokenRemainingMillis(token);
-        if (remaining <= 0) return; // already expired
+        if (remaining <= 0) return;
         String sig = extractTokenSignature(token);
         String key = getBlacklistKey(sig);
-        // store a simple marker value
         redisTemplate.opsForValue().set(key, "blacklisted", remaining, TimeUnit.MILLISECONDS);
     }
 
@@ -131,13 +120,10 @@ public class JwtService {
         if (parts.length == 3) {
             return parts[2];
         }
-        // fallback to using full token (less ideal)
         return token;
     }
 
-    /**
-     * Compute remaining milliseconds until token expiration.
-     */
+
     public long getTokenRemainingMillis(String token) {
         try {
             Date exp = extractExpiration(token);

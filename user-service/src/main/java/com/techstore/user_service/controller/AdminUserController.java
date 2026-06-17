@@ -10,11 +10,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Admin controller để quản lý users (list, toggle status, update role).
- * Base path: /api/v1/admin/users
- * Yêu cầu role: ADMIN
- */
 @RestController
 @RequestMapping("/api/v1/admin/users")
 public class AdminUserController {

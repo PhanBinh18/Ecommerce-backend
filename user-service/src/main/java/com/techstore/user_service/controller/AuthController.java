@@ -20,7 +20,6 @@ public class AuthController {
         this.authService = authService;
     }
 
-    // Register
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(@RequestBody RegisterRequest request) {
         AuthResponse resp = authService.register(request);
@@ -32,7 +31,6 @@ public class AuthController {
         return ResponseEntity.ok(envelope);
     }
 
-    // Login
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@RequestBody LoginRequest request) {
         AuthResponse resp = authService.login(request);
@@ -44,12 +42,9 @@ public class AuthController {
         return ResponseEntity.ok(envelope);
     }
 
-    // Google login: accept JSON { "idToken": "..." }
-    // POST /api/v1/users/auth/google
     @PostMapping("/google")
     public ResponseEntity<ApiResponse<AuthResponse>> loginWithGoogle(@RequestBody GoogleLoginRequest request) {
         try {
-            // Chuyền quả bóng sang cho AuthService xử lý
             AuthResponse response = authService.googleLogin(request.getIdToken());
             return ResponseEntity.ok(ApiResponse.<AuthResponse>builder()
                     .status("SUCCESS")
@@ -65,7 +60,6 @@ public class AuthController {
         }
     }
 
-    // Logout: token in Authorization header "Bearer <token>"
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(@RequestHeader HttpHeaders headers) {
         String authHeader = headers.getFirst(HttpHeaders.AUTHORIZATION);

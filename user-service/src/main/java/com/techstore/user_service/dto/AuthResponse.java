@@ -5,9 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Object trả về cho Frontend sau khi đăng nhập/đăng ký thành công, chứa thẻ JWT.
- */
 @Data
 @Builder
 @AllArgsConstructor

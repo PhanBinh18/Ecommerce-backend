@@ -10,10 +10,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Controller quản lý addresses của user hiện tại.
- * Base path phù hợp spec: /api/v1/users/addresses
- */
 @RestController
 @RequestMapping("/api/v1/users/addresses")
 public class AddressController {

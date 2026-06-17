@@ -8,11 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Controller để quản lý profile của user hiện tại.
- * Base path: /api/v1/users/profile
- * Yêu cầu: authentication (token JWT hợp lệ)
- */
 @RestController
 @RequestMapping("/api/v1/users/profile")
 public class ProfileController {
@@ -23,10 +18,6 @@ public class ProfileController {
         this.userService = userService;
     }
 
-    /**
-     * GET /api/v1/users/profile
-     * Lấy thông tin profile của user hiện đang đăng nhập.
-     */
     @GetMapping
     public ResponseEntity<ApiResponse<UserProfileResponse>> getProfile() {
         UserProfileResponse profile = userService.getCurrentUserProfile();
@@ -38,10 +29,6 @@ public class ProfileController {
         return ResponseEntity.ok(resp);
     }
 
-    /**
-     * PUT /api/v1/users/profile
-     * Cập nhật thông tin profile (fullName, phone) của user hiện đang đăng nhập.
-     */
     @PutMapping
     public ResponseEntity<ApiResponse<UserProfileResponse>> updateProfile(
             @RequestBody UserProfileUpdateRequest request) {

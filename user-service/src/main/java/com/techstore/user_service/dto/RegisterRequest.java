@@ -2,10 +2,6 @@ package com.techstore.user_service.dto;
 
 import lombok.Data;
 
-/**
- * Request payload when a user registers.
- * Spec: email, password, fullName, phone
- */
 @Data
 public class RegisterRequest {
     private String email;

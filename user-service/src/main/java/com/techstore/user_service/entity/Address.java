@@ -27,7 +27,6 @@ public class Address {
     @Column(name = "phone_number")
     private String phoneNumber;
 
-    // Dùng TEXT vì địa chỉ chi tiết có thể khá dài
     @Column(name = "shipping_address", columnDefinition = "TEXT")
     private String shippingAddress;
 

@@ -9,9 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
-/**
- * DTO returned by GET /api/v1/users/profile
- */
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,14 +21,6 @@ public class UserProfileResponse {
     private String phone;
     private Boolean isActive;
     private LocalDateTime createdAt;
-
-    /**
-     * Role names, e.g. ["ROLE_ADMIN","ROLE_CUSTOMER"]
-     */
     private Set<String> roles;
-
-    /**
-     * User addresses
-     */
     private List<AddressResponse> addresses;
 }

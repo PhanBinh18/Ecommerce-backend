@@ -40,21 +40,12 @@ public class User implements UserDetails {
 
     private String phone;
 
-    /**
-     * Trạng thái active của account
-     */
     private boolean isActive = true;
 
-    /**
-     * Thời điểm tạo user, dùng @CreationTimestamp để Hibernate set tự động
-     */
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    /**
-     * Quan hệ users - roles (n-n)
-     */
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",
@@ -63,16 +54,9 @@ public class User implements UserDetails {
     )
     private Set<Role> roles = new HashSet<>();
 
-    /**
-     * Quan hệ users - addresses (1-n)
-     */
     @JsonIgnore
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Address> addresses = new HashSet<>();
-
-    // ===========================
-    // UserDetails implementation
-    // ===========================
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -87,17 +71,11 @@ public class User implements UserDetails {
         return email;
     }
 
-    // password getter already provided by Lombok
-
     @Override
     public boolean isAccountNonExpired() {
         return true;
     }
 
-    /**
-     * Keep existing behavior: use isActive to indicate non-locked/enabled.
-     * You may separate isLocked and isActive if you want different semantics.
-     */
     @Override
     public boolean isAccountNonLocked() {
         return isActive;
@@ -113,7 +91,6 @@ public class User implements UserDetails {
         return isActive;
     }
 
-    // Convenience helpers to manage bi-directional relation with Address
     public void addAddress(Address address) {
         address.setUser(this);
         this.addresses.add(address);
