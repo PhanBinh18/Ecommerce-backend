@@ -35,7 +35,6 @@ public class ProductImageService {
 
         List<ProductImage> savedImages = new ArrayList<>();
 
-        // Kiểm tra xem sản phẩm này đã có ảnh nào chưa
         boolean shouldBeThumbnail = product.getImages().isEmpty();
 
         for (MultipartFile file : files) {
@@ -45,10 +44,10 @@ public class ProductImageService {
             ProductImage image = ProductImage.builder()
                     .product(product)
                     .url(secureUrl)
-                    .isThumbnail(shouldBeThumbnail) // Gán true cho ảnh đầu tiên
+                    .isThumbnail(shouldBeThumbnail)
                     .build();
 
-            shouldBeThumbnail = false; // Các ảnh sau trong cùng 1 lần up sẽ là false
+            shouldBeThumbnail = false;
 
             ProductImage saved = productImageRepository.save(image);
             product.getImages().add(saved);
@@ -84,8 +83,6 @@ public class ProductImageService {
         if (!found) {
             throw new RuntimeException("Image id " + imageId + " does not belong to product " + productId);
         }
-
-        // save product to persist any changes to relationship (optional)
         productRepository.save(product);
     }
 }

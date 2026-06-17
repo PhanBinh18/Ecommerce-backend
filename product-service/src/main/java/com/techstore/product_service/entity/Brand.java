@@ -1,4 +1,4 @@
-package com.techstore.product_service.entity; // Thay đổi lại package cho đúng dự án của bạn
+package com.techstore.product_service.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -10,7 +10,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = "products") // Tránh lỗi vòng lặp vô hạn khi log dữ liệu
+@ToString(exclude = "products")
 public class Brand {
 
     @Id
@@ -21,9 +21,8 @@ public class Brand {
     private String name;
 
     @Column(length = 20)
-    private String status = "ACTIVE"; // Mặc định là ACTIVE, có thể chuyển thành HIDDEN nếu muốn ẩn hãng đó
+    private String status = "ACTIVE";
 
-    // Quan hệ 1-N với Product: Một thương hiệu có nhiều sản phẩm
     @OneToMany(mappedBy = "brand", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Product> products;
 }

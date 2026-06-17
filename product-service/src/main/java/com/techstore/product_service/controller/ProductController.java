@@ -22,7 +22,6 @@ public class ProductController {
     // -----------------------
     // Public endpoints
     // -----------------------
-
     @GetMapping("/products")
     public ResponseEntity<ApiResponse<ProductPageResponse<ProductResponse>>> getProducts(
             @RequestParam(defaultValue = "0") int page,
@@ -32,7 +31,6 @@ public class ProductController {
             @RequestParam(required = false, value = "category") Long categoryId, // ĐÃ SỬA: Đổi sang Long
             @RequestParam(required = false, value = "brand") Long brandId) {     // ĐÃ SỬA: Đổi sang Long
 
-        // ĐÃ SỬA: Truyền categoryId và brandId vào Service
         ProductPageResponse<ProductResponse> data = productServiceImpl.getProducts(page, size, sortType, keyword, categoryId, brandId);
 
         ApiResponse<ProductPageResponse<ProductResponse>> res = ApiResponse.<ProductPageResponse<ProductResponse>>builder()
@@ -59,8 +57,6 @@ public class ProductController {
     // -----------------------
     // Admin endpoints
     // -----------------------
-    // Note: add security annotations later (e.g. @PreAuthorize)
-
     @PostMapping("/admin/products")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> createProduct(@RequestBody ProductRequest request) {
         ProductDetailResponse data = productServiceImpl.createProduct(request);
@@ -90,7 +86,7 @@ public class ProductController {
         productServiceImpl.deleteProduct(id);
         ApiResponse<Void> res = ApiResponse.<Void>builder()
                 .status("SUCCESS")
-                .message("Đã xóa mềm (soft delete) sản phẩm")
+                .message("Đã xóa sản phẩm")
                 .data(null)
                 .timestamp(LocalDateTime.now())
                 .build();
@@ -107,10 +103,8 @@ public class ProductController {
             @RequestParam("files") List<MultipartFile> files) {
         try {
             List<?> saved = productImageService.uploadImages(id, files);
-            // return list of URLs
             List<String> urls = saved.stream().map(obj -> {
                 try {
-                    // ProductImage has getUrl()
                     return (String) obj.getClass().getMethod("getUrl").invoke(obj);
                 } catch (Exception e) {
                     return null;
@@ -142,7 +136,6 @@ public class ProductController {
 
         productServiceImpl.increaseStock(id, quantity);
 
-        // Gói kết quả vào ApiResponse để khớp với FeignClient bên Order Service
         ApiResponse<Void> res = ApiResponse.<Void>builder()
                 .status("SUCCESS")
                 .message("Phục hồi số lượng kho thành công")

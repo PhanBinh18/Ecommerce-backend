@@ -9,6 +9,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class InventoryResponseEvent {
     private Long orderId;
-    private boolean success; // true nếu trừ kho đủ, false nếu hết hàng
-    private String message;  // Lời nhắn (VD: "Thành công" hoặc "Lỗi: Hết hàng")
+    private boolean success;
+    private String message;
 }

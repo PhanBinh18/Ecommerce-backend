@@ -88,19 +88,16 @@ public class CategoryServiceImpl implements CategoryService {
         Category cat = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found: " + id));
 
-        // --- Bổ sung logic Toggle ---
         if (cat.getStatus() == CategoryStatus.HIDDEN) {
             cat.setStatus(CategoryStatus.DISPLAY); // Nếu đang ẩn thì hiện
         } else {
             cat.setStatus(CategoryStatus.HIDDEN); // Nếu đang hiện thì ẩn
         }
-        // ----------------------------
 
         Category saved = categoryRepository.save(cat);
         return toResponse(saved);
     }
 
-    // --- Mapping helper ---
     private CategoryResponse toResponse(Category c) {
         return CategoryResponse.builder()
                 .id(c.getId())

@@ -28,18 +28,15 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class ProductServiceImpl implements ProductService { // <-- Đã thêm implements
+public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductImageRepository productImageRepository;
-    private final BrandRepository brandRepository; // <-- Bổ sung BrandRepository
+    private final BrandRepository brandRepository; //
     private final RedissonClient redissonClient;
 
-    // ======================
     // Public APIs (cached)
-    // ======================
-
     @Override
     @Cacheable(value = "products")
     public ProductPageResponse<ProductResponse> getProducts(int page, int size, String sortType, String keyword, Long categoryId, Long brandId) {
@@ -93,10 +90,7 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
         return toProductDetailResponse(product);
     }
 
-    // ======================
     // Admin APIs (mutating)
-    // ======================
-
     @Override
     @Transactional
     @CacheEvict(value = "products", allEntries = true)
@@ -107,7 +101,6 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
                     .orElseThrow(() -> new RuntimeException("Category not found: " + request.getCategoryId()));
         }
 
-        // TÌM BRAND
         Brand brand = null;
         if (request.getBrandId() != null) {
             brand = brandRepository.findById(request.getBrandId())
@@ -147,7 +140,6 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
             product.setCategory(category);
         }
 
-        // CẬP NHẬT BRAND
         if (request.getBrandId() != null) {
             Brand brand = brandRepository.findById(request.getBrandId())
                     .orElseThrow(() -> new RuntimeException("Brand not found: " + request.getBrandId()));
@@ -168,11 +160,7 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
         productRepository.save(product);
     }
 
-    // ======================
-    // Stock Reservation & Saga
-    // (Các hàm này giữ nguyên 100% logic của bạn)
-    // ======================
-
+    // Stock Reservation
     @Override
     public boolean reserveStock(Long productId, int quantity) throws InterruptedException {
         String lockKey = "product::lock::" + productId;
@@ -224,7 +212,7 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
             product.setStockQuantity(Math.max(product.getStockQuantity() - item.getQuantity(), 0));
             product.setReservedQuantity(Math.max(product.getReservedQuantity() - item.getQuantity(), 0));
             productRepository.save(product);
-            System.out.println("✅ Confirmed order item: Product #" + item.getProductId() + ", Qty: " + item.getQuantity());
+            System.out.println("Confirmed order item: Product #" + item.getProductId() + ", Qty: " + item.getQuantity());
         }
     }
 
@@ -237,31 +225,26 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
 
             if (isTimeout != null && isTimeout) {
                 product.setReservedQuantity(Math.max(product.getReservedQuantity() - item.getQuantity(), 0));
-                System.out.println("⏱️ Order timeout: Release reserved stock for Product #" + item.getProductId() + ", Qty: " + item.getQuantity());
+                System.out.println("⏱Order timeout: Release reserved stock for Product #" + item.getProductId() + ", Qty: " + item.getQuantity());
             } else {
                 product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
                 product.setReservedQuantity(Math.max(product.getReservedQuantity() - item.getQuantity(), 0));
-                System.out.println("🔙 Order cancelled (after confirm): Restore stock for Product #" + item.getProductId() + ", Qty: " + item.getQuantity());
+                System.out.println("Order cancelled (after confirm): Restore stock for Product #" + item.getProductId() + ", Qty: " + item.getQuantity());
             }
             productRepository.save(product);
         }
     }
 
-    // ======================
-    // Helpers: mapping entity -> DTO
-    // ======================
 
+    // Helpers: mapping entity -> DTO
     private ProductResponse toProductResponse(Product p) {
         String thumbnail = null;
 
-        // Tận dụng danh sách ảnh đã lấy lên cùng Product, không gọi thêm Repository để tránh N+1 Query
         if (p.getImages() != null && !p.getImages().isEmpty()) {
             thumbnail = p.getImages().stream()
-                    // Ưu tiên 1: Tìm ảnh được đánh dấu là thumbnail
                     .filter(img -> Boolean.TRUE.equals(img.getIsThumbnail()))
                     .map(ProductImage::getUrl)
                     .findFirst()
-                    // Ưu tiên 2 (Kế hoạch dự phòng): Nếu không có, lấy luôn URL của bức ảnh đầu tiên trong mảng
                     .orElse(p.getImages().stream().findFirst().map(ProductImage::getUrl).orElse(null));
         }
 
@@ -275,7 +258,7 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
                 .stockQuantity(p.getStockQuantity())
                 .categoryName(categoryName)
                 .brandName(brandName)
-                .thumbnail(thumbnail) // <--- Chắc chắn sẽ có link nếu sản phẩm có ảnh
+                .thumbnail(thumbnail)
                 .build();
     }
 
@@ -310,7 +293,7 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
                 .price(p.getPrice())
                 .description(p.getDescription())
                 .category(catInfo)
-                .brand(brandInfo) // Gắn vào DTO (BẠN CẦN BỔ SUNG Class con BrandInfo VÀO ProductDetailResponse.java)
+                .brand(brandInfo)
                 .images(images)
                 .stockQuantity(p.getStockQuantity())
                 .createdAt(p.getCreatedAt())
@@ -323,7 +306,6 @@ public class ProductServiceImpl implements ProductService { // <-- Đã thêm im
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found: " + productId));
 
-        // Cộng trả lại số lượng vào kho
         product.setStockQuantity(product.getStockQuantity() + quantity);
         productRepository.save(product);
         System.out.println("🔙 Restored stock: Product #" + productId + ", Qty: +" + quantity);

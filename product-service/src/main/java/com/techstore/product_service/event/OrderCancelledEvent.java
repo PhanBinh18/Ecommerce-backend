@@ -14,6 +14,6 @@ import java.util.List;
 public class OrderCancelledEvent {
     private Long orderId;
     private List<OrderItemEvent> items;
-    private String reason;        // e.g., "PAYMENT_FAILED", "USER_CANCELLED", "TIMEOUT"
-    private Boolean isTimeout;    // true = timeout (hủy do hết hạn), false = hủy sau khi confirm
+    private String reason;
+    private Boolean isTimeout;
 }

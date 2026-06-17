@@ -16,7 +16,7 @@ public class ProductResponse {
     private String name;
     private BigDecimal price;
     private String categoryName;
-    private String thumbnail; // URL đến ảnh thumbnail (nếu có)
+    private String thumbnail;
     private String brandName;
     private Integer stockQuantity;
 }

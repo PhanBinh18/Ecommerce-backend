@@ -8,6 +8,5 @@ import java.util.List;
 
 @Repository
 public interface BrandRepository extends JpaRepository<Brand, Long> {
-    // Lấy danh sách các thương hiệu đang ACTIVE để hiển thị lên Dropdown ở Frontend
     List<Brand> findByStatus(String status);
 }

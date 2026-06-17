@@ -42,9 +42,9 @@ public class OrderEventListener {
             InventoryResponseEvent successResponse = new InventoryResponseEvent(event.getOrderId(), true, "Order confirmed: inventory updated");
             rabbitTemplate.convertAndSend(RabbitMQConfig.REPLY_EXCHANGE_NAME, "inventory.reply.confirmed", successResponse);
 
-            log.info("✅ Order #{} confirmed processed successfully", event.getOrderId());
+            log.info("Order #{} confirmed processed successfully", event.getOrderId());
         } catch (Exception ex) {
-            log.error("❌ Error processing ORDER_CONFIRMED for Order #{}: {}", event.getOrderId(), ex.getMessage(), ex);
+            log.error("Error processing ORDER_CONFIRMED for Order #{}: {}", event.getOrderId(), ex.getMessage(), ex);
             InventoryResponseEvent failResponse = new InventoryResponseEvent(event.getOrderId(), false, "Error confirming order: " + ex.getMessage());
             rabbitTemplate.convertAndSend(RabbitMQConfig.REPLY_EXCHANGE_NAME, "inventory.reply.error", failResponse);
         }
@@ -57,7 +57,7 @@ public class OrderEventListener {
      */
     @RabbitListener(queues = RabbitMQConfig.PRODUCT_CANCELLED_QUEUE)
     public void handleOrderCancelled(OrderCancelledEvent event) {
-        log.info("🚫 [ORDER CANCELLED] Received Order #{} (isTimeout={}, reason={}), items={}",
+        log.info("[ORDER CANCELLED] Received Order #{} (isTimeout={}, reason={}), items={}",
                 event.getOrderId(), event.getIsTimeout(), event.getReason(),
                 (event.getItems() == null ? 0 : event.getItems().size()));
         try {
@@ -65,17 +65,15 @@ public class OrderEventListener {
             if (items == null || items.isEmpty()) {
                 log.warn("Order #{} cancellation contains no items", event.getOrderId());
             } else {
-                // Delegate to ProductService for cancel logic (transactional)
                 productServiceImpl.cancelOrderItems(items, event.getIsTimeout());
             }
 
-            // Send success response back to Order service
             InventoryResponseEvent successResponse = new InventoryResponseEvent(event.getOrderId(), true, "Order cancelled: inventory adjusted");
             rabbitTemplate.convertAndSend(RabbitMQConfig.REPLY_EXCHANGE_NAME, "inventory.reply.cancelled", successResponse);
 
-            log.info("✅ Order #{} cancellation processed successfully", event.getOrderId());
+            log.info("Order #{} cancellation processed successfully", event.getOrderId());
         } catch (Exception ex) {
-            log.error("❌ Error processing ORDER_CANCELLED for Order #{}: {}", event.getOrderId(), ex.getMessage(), ex);
+            log.error("Error processing ORDER_CANCELLED for Order #{}: {}", event.getOrderId(), ex.getMessage(), ex);
             InventoryResponseEvent failResponse = new InventoryResponseEvent(event.getOrderId(), false, "Error cancelling order: " + ex.getMessage());
             rabbitTemplate.convertAndSend(RabbitMQConfig.REPLY_EXCHANGE_NAME, "inventory.reply.error", failResponse);
         }

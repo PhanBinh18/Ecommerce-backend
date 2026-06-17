@@ -9,6 +9,5 @@ import java.util.Optional;
 @Repository
 public interface ProductImageRepository extends JpaRepository<ProductImage, Long> {
 
-    // Tìm ảnh thumbnail của product
     Optional<ProductImage> findByProductIdAndIsThumbnailTrue(Long productId);
 }

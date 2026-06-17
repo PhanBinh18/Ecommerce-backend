@@ -25,22 +25,18 @@ public class CacheConfig {
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
 
-        // 1. Khởi tạo và dạy ObjectMapper cách xử lý Java 8 DateTime
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // Format ngày tháng dễ nhìn thay vì số Timestamp
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        // Để lúc lấy ra từ Cache, Spring biết cách ép kiểu ngược lại thành đúng Object
         objectMapper.activateDefaultTyping(
                 objectMapper.getPolymorphicTypeValidator(),
                 ObjectMapper.DefaultTyping.NON_FINAL,
                 JsonTypeInfo.As.PROPERTY
         );
 
-        // 2. Nhồi ObjectMapper xịn vào Serializer
         GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
 
-        // 3. Gắn Serializer vào cấu hình Redis Cache
         RedisCacheConfiguration baseConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .disableCachingNullValues()
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
@@ -53,7 +49,7 @@ public class CacheConfig {
         // products cache: 1 hour
         cacheConfigs.put("products", baseConfig.entryTtl(Duration.ofHours(1)));
 
-        // Default TTL: 1 hour (dành cho các cache khác chưa được định nghĩa)
+        // Default TTL: 1 hour
         RedisCacheConfiguration defaultConfig = baseConfig.entryTtl(Duration.ofHours(1));
 
         return RedisCacheManager.builder(connectionFactory)

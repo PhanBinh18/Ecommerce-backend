@@ -154,10 +154,7 @@ public class InternalProductController {
         }
     }
 
-    // ==================
     // Inner DTOs for Response
-    // ==================
-
     @lombok.Data
     @lombok.Builder
     @lombok.NoArgsConstructor

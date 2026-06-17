@@ -13,15 +13,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/brands") // Đường dẫn này sẽ map thành /products/brands qua API Gateway của bạn
+@RequestMapping("/api/v1/brands")
 @RequiredArgsConstructor
 public class BrandController {
 
     private final BrandService brandService;
 
-    /**
-     * Public API: Lấy danh sách thương hiệu đang hoạt động cho cả User và Admin tuyển chọn
-     */
     @GetMapping
     public ResponseEntity<ApiResponse<List<BrandResponse>>> getActiveBrands() {
         List<BrandResponse> data = brandService.getActiveBrands();

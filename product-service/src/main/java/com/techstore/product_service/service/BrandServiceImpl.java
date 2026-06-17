@@ -1,4 +1,4 @@
-package com.techstore.product_service.service.impl;
+package com.techstore.product_service.service;
 
 import com.techstore.product_service.dto.BrandResponse;
 import com.techstore.product_service.entity.Brand;

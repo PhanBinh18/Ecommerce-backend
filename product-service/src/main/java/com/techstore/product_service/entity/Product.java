@@ -28,31 +28,26 @@ public class Product {
 
     private BigDecimal price;
 
-    // Theo spec: stockQuantity
     @Column(nullable = false)
     private Integer stockQuantity = 0;
 
-    // reservedQuantity (mặc định = 0)
     @Column(nullable = false)
     private Integer reservedQuantity = 0;
 
     private String description;
 
-    // Trạng thái: ACTIVE / DELETED
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ProductStatus status = ProductStatus.ACTIVE;
 
-    // Quan hệ tới Category
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "brand_id") // Sẽ tự tạo cột brand_id làm khóa ngoại trong bảng products
+    @JoinColumn(name = "brand_id")
     private Brand brand;
 
-    // 1 product có nhiều images
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<ProductImage> images = new HashSet<>();
