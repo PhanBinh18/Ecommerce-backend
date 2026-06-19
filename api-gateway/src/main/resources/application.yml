@@ -4,13 +4,22 @@ server:
 spring:
   application:
     name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: cart-service-route
+          uri: lb://cart-service
+          predicates:
+            - Path=/api/v1/carts/**
+          filters:
+            - StripPrefix=3
 
 eureka:
   instance:
     prefer-ip-address: true
   client:
     service-url:
-      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+      defaultZone: ${EUREKA_URL}
 
 jwt:
   secret: ${JWT_SECRET}
@@ -19,3 +28,15 @@ jwt:
 logging:
   level:
     org.springframework.cloud.gateway: INFO
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: User Service
+        url: /api/v1/users/v3/api-docs
+      - name: Product Service
+        url: /api/v1/products/v3/api-docs
+      - name: Order Service
+        url: /api/v1/orders/v3/api-docs
+      - name: Cart Service
+        url: /api/v1/carts/v3/api-docs

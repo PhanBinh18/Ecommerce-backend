@@ -31,6 +31,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // SWAGGER
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+
                         // =========== USER/GUEST CART OPERATIONS (Public, but controller checks auth/guest header) ===========
                         .requestMatchers(HttpMethod.GET, "/api/v1/carts/**").permitAll()
 

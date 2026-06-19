@@ -21,17 +21,27 @@ public class ApiGatewayApplication {
 	public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
 		return builder.routes()
 				.route("user-service", r -> r.path("/api/v1/users/**", "/api/v1/admin/users/**")
+						.filters(f -> f.rewritePath("/api/v1/users/(?<segment>v3/api-docs.*)", "/${segment}"))
 						.uri("lb://USER-SERVICE"))
+
 				.route("product-service", r -> r.path(
-						"/api/v1/products/**",
-						"/api/v1/categories/**",
-						"/api/v1/brands/**",
-						"/api/v1/admin/products/**",
-						"/api/v1/admin/categories/**"
-				).uri("lb://PRODUCT-SERVICE"))
+								"/api/v1/products/**",
+								"/api/v1/categories/**",
+								"/api/v1/brands/**",
+								"/api/v1/admin/products/**",
+								"/api/v1/admin/categories/**"
+						)
+						.filters(f -> f.rewritePath("/api/v1/(products|categories|brands|admin/products|admin/categories)/(?<segment>v3/api-docs.*)", "/${segment}"))
+						.uri("lb://PRODUCT-SERVICE"))
+
 				.route("cart-service", r -> r.path("/api/v1/carts/**")
+						// Filter: Cắt bỏ /api/v1/carts
+						.filters(f -> f.rewritePath("/api/v1/carts/(?<segment>v3/api-docs.*)", "/${segment}"))
 						.uri("lb://CART-SERVICE"))
+
 				.route("order-service", r -> r.path("/api/v1/orders/**", "/api/v1/admin/orders/**")
+						// Filter: Cắt bỏ /api/v1/orders
+						.filters(f -> f.rewritePath("/api/v1/(orders|admin/orders)/(?<segment>v3/api-docs.*)", "/${segment}"))
 						.uri("lb://ORDER-SERVICE"))
 				.build();
 	}

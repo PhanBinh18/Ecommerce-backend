@@ -28,7 +28,6 @@ spring:
 eureka:
   instance:
     prefer-ip-address: true
-    ip-address: ${SPRING_CLOUD_CLIENT_IP_ADDRESS}
   client:
     service-url:
       defaultZone: ${EUREKA_URL}
