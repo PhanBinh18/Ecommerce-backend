@@ -4,10 +4,14 @@ import com.techstore.order_service.client.ProductClient;
 import com.techstore.order_service.dto.*;
 import com.techstore.order_service.service.OrderService;
 import com.techstore.order_service.security.SecurityUtils;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,6 +21,8 @@ public class OrderController {
 
     @Autowired
     private OrderService orderService;
+
+    private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
     // POST /api/v1/orders/checkout
     @PostMapping("/orders/checkout")
@@ -79,34 +85,38 @@ public class OrderController {
 
     // GET /api/v1/orders/vnpay-ipn (public webhook)
     @GetMapping("/orders/vnpay-ipn")
-    public ResponseEntity<ApiResponse<Map<String, String>>> vnpayIpn(
-            @RequestParam(name = "vnp_Amount", required = false) String vnp_Amount,
-            @RequestParam(name = "vnp_OrderInfo", required = false) String vnp_OrderInfo,
-            @RequestParam(name = "vnp_ResponseCode", required = false) String vnp_ResponseCode,
-            @RequestParam(name = "vnp_SecureHash", required = false) String vnp_SecureHash,
-            @RequestParam(name = "vnp_TxnRef", required = false) String vnp_TxnRef
-    ) {
-        VNPayIPNRequest ipn = VNPayIPNRequest.builder()
-                .vnp_Amount(vnp_Amount)
-                .vnp_OrderInfo(vnp_OrderInfo)
-                .vnp_ResponseCode(vnp_ResponseCode)
-                .vnp_SecureHash(vnp_SecureHash)
-                .vnp_TxnRef(vnp_TxnRef)
-                .build();
+    public ResponseEntity<Map<String, String>> vnpayIpn(@RequestParam Map<String, String> params) {
+        Map<String, String> response = new HashMap<>();
 
         try {
-            orderService.handleVNPayCallback(ipn);
-            return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
-                    .status("SUCCESS")
-                    .message("IPN processed")
-                    .data(Map.of("result", "OK"))
-                    .build());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.<Map<String, String>>builder()
-                    .status("ERROR")
-                    .message(e.getMessage())
-                    .data(Map.of("result", "FAILED"))
-                    .build());
+            // Ném toàn bộ cục dữ liệu params xuống cho Service xử lý băm chữ ký và nghiệp vụ
+            orderService.handleVNPayCallback(params);
+
+            // Giao dịch thành công, lưu DB thành công -> Trả đúng format VNPay cần
+            response.put("RspCode", "00");
+            response.put("Message", "Confirm Success");
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            // Lỗi 97: Sai chữ ký (Invalid Checksum) - Phát hiện giả mạo
+            log.error("VNPay IPN Checksum failed: {}", e.getMessage());
+            response.put("RspCode", "97");
+            response.put("Message", "Invalid Checksum");
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalStateException e) {
+            // Lỗi 02: Giao dịch đã được xử lý rồi (Idempotency)
+            log.warn("VNPay IPN already processed: {}", e.getMessage());
+            response.put("RspCode", "02");
+            response.put("Message", "Order already confirmed");
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            // Lỗi 99: Các lỗi hệ thống khác không xác định (ví dụ: mất kết nối DB)
+            log.error("VNPay IPN System Error: {}", e.getMessage());
+            response.put("RspCode", "99");
+            response.put("Message", "Unknown error");
+            return ResponseEntity.ok(response);
         }
     }
 

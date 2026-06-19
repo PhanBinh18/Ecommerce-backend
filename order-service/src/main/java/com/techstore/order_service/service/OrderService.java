@@ -262,45 +262,102 @@ public class OrderService {
     // VNPay IPN handler
     // -------------------------
     @Transactional
-    public PaymentTransaction handleVNPayCallback(VNPayIPNRequest ipn) {
-        log.info("Received VNPay IPN: vnp_TxnRef={}, vnp_Amount={}, vnp_ResponseCode={}",
-                ipn.getVnp_TxnRef(), ipn.getVnp_Amount(), ipn.getVnp_ResponseCode());
+    public PaymentTransaction handleVNPayCallback(Map<String, String> params) {
+        log.info("Received VNPay IPN params: {}", params);
 
-        String txnRef = ipn.getVnp_TxnRef();
+        String txnRef = params.get("vnp_TxnRef");
+        String vnp_SecureHash = params.get("vnp_SecureHash");
+        String responseCode = params.get("vnp_ResponseCode");
+        String amountStr = params.get("vnp_Amount");
+
+        // vnp_TransactionNo là MÃ GIAO DỊCH THỰC SỰ của VNPay (Sinh ra trên hệ thống của họ)
+        String vnp_TransactionNo = params.get("vnp_TransactionNo");
+
         if (txnRef == null || txnRef.isEmpty()) {
-            log.error("VNPay IPN missing vnp_TxnRef");
             throw new RuntimeException("Missing vnp_TxnRef");
         }
 
+        // ==========================================
+        // 1. BẢO MẬT: XÁC THỰC CHỮ KÝ (CHECKSUM)
+        // Phải làm đầu tiên để chặn hacker ngay từ cửa!
+        // ==========================================
+        params.remove("vnp_SecureHashType");
+        params.remove("vnp_SecureHash");
+
+        List<String> fieldNames = new ArrayList<>(params.keySet());
+        Collections.sort(fieldNames);
+        StringBuilder hashData = new StringBuilder();
+
+        try {
+            for (String fieldName : fieldNames) {
+                String fieldValue = params.get(fieldName);
+                if ((fieldValue != null) && (fieldValue.length() > 0)) {
+                    hashData.append(fieldName).append('=')
+                            .append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString())).append('&');
+                }
+            }
+        } catch (Exception e) {
+            log.error("Lỗi encode dữ liệu băm", e);
+            throw new RuntimeException("Lỗi hệ thống khi xử lý chữ ký");
+        }
+
+        if (hashData.length() > 0) {
+            hashData.setLength(hashData.length() - 1);
+        }
+
+        String secureHash = vnPayConfig.hmacSHA512(vnPayConfig.getSecretKey(), hashData.toString());
+        if (!secureHash.equals(vnp_SecureHash)) {
+            log.error("PHÁT HIỆN SAI CHỮ KÝ! Giao dịch giả mạo: {}", txnRef);
+            throw new IllegalArgumentException("Invalid VNPay signature");
+        }
+
+        // ==========================================
+        // 2. TÌM ĐƠN HÀNG
+        // ==========================================
         Order order = orderRepository.findByOrderCode(txnRef)
                 .orElseThrow(() -> {
                     log.error("Order not found for orderCode {}", txnRef);
                     return new RuntimeException("Không tìm thấy order với mã: " + txnRef);
                 });
 
+        // ==========================================
+        // 3. IDEMPOTENCY: KIỂM TRA TRÙNG LẶP (Chuẩn VNPay)
+        // ==========================================
+        // Giả sử PENDING_UNPAID là trạng thái chờ thanh toán của bạn.
+        // Nếu khác PENDING_UNPAID (tức là đã hủy, hoặc đã thanh toán xong) -> Ném lỗi mã 02
+        if (order.getStatus() != OrderStatus.PENDING_UNPAID) {
+            log.warn("Đơn hàng {} đã thay đổi trạng thái (hiện tại: {}). Bỏ qua IPN.", txnRef, order.getStatus());
+            throw new IllegalStateException("Order already confirmed");
+        }
+
+        // ==========================================
+        // 4. XỬ LÝ NGHIỆP VỤ & LƯU LỊCH SỬ
+        // ==========================================
         PaymentTransaction tx = PaymentTransaction.builder()
                 .order(order)
-                .transactionCode(UUID.randomUUID().toString())
+                // 🌟 LƯU Ý: Dùng mã GD của VNPay làm TransactionCode sẽ chuẩn xác hơn
+                .transactionCode(vnp_TransactionNo != null ? vnp_TransactionNo : UUID.randomUUID().toString())
                 .paymentMethod("VNPAY")
-                .amount(parseAmount(ipn.getVnp_Amount()))
-                .status(ipn.getVnp_ResponseCode())
-                .responseCode(ipn.getVnp_ResponseCode())
+                .amount(parseAmount(amountStr))
+                .status(responseCode)
+                .responseCode(responseCode)
                 .message("VNPay IPN")
                 .build();
 
         PaymentTransaction savedTx = paymentTransactionRepository.save(tx);
         log.info("Saved PaymentTransaction {} for orderCode {}", savedTx.getTransactionCode(), order.getOrderCode());
 
-        if ("00".equals(ipn.getVnp_ResponseCode())) {
+        // Nếu khách thanh toán thành công -> Confirm Đơn hàng
+        if ("00".equals(responseCode)) {
             log.info("VNPay payment success for order {}, calling confirmOrder", order.getOrderCode());
             confirmOrder(order.getId());
         } else {
-            log.warn("VNPay payment failed for order {}: responseCode={}", order.getOrderCode(), ipn.getVnp_ResponseCode());
+            // Nếu thất bại (khách hủy, thiếu tiền...) -> Ghi log, để nguyên đơn hàng cho khách thử lại
+            log.warn("VNPay payment failed for order {}: responseCode={}", order.getOrderCode(), responseCode);
         }
 
         return savedTx;
     }
-
     private BigDecimal parseAmount(String vnpAmount) {
         if (vnpAmount == null) return BigDecimal.ZERO;
         try {
