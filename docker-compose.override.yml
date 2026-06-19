@@ -1,0 +1,33 @@
+services:
+  db:
+    ports:
+      - "3307:3306"
+
+  rabbitmq:
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  eureka-server:
+    ports:
+      - "8761:8761"
+
+  user-service:
+    ports:
+      - "${PORT_USER}:${PORT_USER}"
+
+  product-service:
+    ports:
+      - "${PORT_PRODUCT}:${PORT_PRODUCT}"
+
+  cart-service:
+    ports:
+      - "${PORT_CART}:${PORT_CART}"
+
+  order-service:
+    ports:
+      - "${PORT_ORDER}:${PORT_ORDER}"

@@ -1,17 +1,21 @@
+networks:
+  techstore-net:
+    driver: bridge
+
 services:
   db:
     image: mysql:8.4
     container_name: techstore-db-container
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: 123456
-    ports:
-      - "3307:3306"
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
       - techstore_db_data:/var/lib/mysql
+    networks:
+      - techstore-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p123456"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,25 +25,193 @@ services:
     image: rabbitmq:3-management
     container_name: techstore-rabbitmq-container
     restart: always
-    ports:
-      - "5672:5672"   # Port giao tiếp tiêu chuẩn cho Spring Boot (AMQP)
-      - "15672:15672" # Port để truy cập trang quản trị UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     volumes:
       - techstore_rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - techstore-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
-  # --- REDIS ---
   redis:
     image: redis:7.0-alpine
     container_name: techstore-redis-container
     restart: always
-    ports:
-      - "6379:6379"
-    # Đặt mật khẩu đồng bộ với MySQL cho dễ nhớ khi dev
-    command: redis-server --requirepass 123456
+    command: redis-server --requirepass ${REDIS_PASSWORD}
     volumes:
       - techstore_redis_data:/data
+    networks:
+      - techstore-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  eureka-server:
+    build: ./eureka-server
+    container_name: techstore-eureka-container
+    restart: always
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - techstore-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8761/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 50s
+      retries: 3
+      start_period: 60s
+
+  user-service:
+    build: ./user-service
+    container_name: techstore-user-container
+    restart: always
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - PORT=${PORT_USER:-8081}
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME_USER}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+    networks:
+      - techstore-net
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  product-service:
+    build: ./product-service
+    container_name: techstore-product-container
+    restart: always
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - PORT=${PORT_PRODUCT:-8082}
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME_PRODUCT}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+    networks:
+      - techstore-net
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  cart-service:
+    build: ./cart-service
+    container_name: techstore-cart-container
+    restart: always
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - PORT=${PORT_CART:-8083}
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME_CART}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+    networks:
+      - techstore-net
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  order-service:
+    build: ./order-service
+    container_name: techstore-order-container
+    restart: always
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - PORT=${PORT_ORDER:-8084}
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME_ORDER}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - VNP_URL=${VNP_URL}
+      - VNP_TMN_CODE=${VNP_TMN_CODE}
+      - VNP_HASH_SECRET=${VNP_HASH_SECRET}
+      - VNP_RETURN_URL=${VNP_RETURN_URL}
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+    networks:
+      - techstore-net
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: techstore-gateway-container
+    ports:
+      - "${PORT_GATEWAY:-8080}:${PORT_GATEWAY:-8080}"
+    restart: always
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - PORT=${PORT_GATEWAY:-8080}
+      - JWT_SECRET=${JWT_SECRET}
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+    networks:
+      - techstore-net
+    depends_on:
+      eureka-server:
+        condition: service_healthy
 
 volumes:
   techstore_db_data:
   techstore_rabbitmq_data:
-  techstore_redis_data: # Volume mới cho Redis
+  techstore_redis_data:
