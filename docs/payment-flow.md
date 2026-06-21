@@ -1,15 +1,13 @@
-# Luồng Thanh Toán VNPay (Payment Flow)
+# VNPay Payment Flow
 
-Tài liệu này mô tả chi tiết quy trình xử lý thanh toán qua cổng VNPay trong hệ thống kiến trúc Microservices. Luồng giao dịch được thiết kế với **tiêu chuẩn bảo mật Production-ready**, đảm bảo an toàn dữ liệu, chống giả mạo chữ ký (Checksum), chống kẹt luồng (Idempotency) và xử lý tự động các đơn hàng quá hạn nhờ RabbitMQ.
+This document details the payment processing flow via the VNPay gateway within the Microservices architecture. The transaction flow is designed with **Production-ready security standards**, ensuring data safety, preventing signature forgery (Checksum), avoiding duplicate processing (Idempotency), and automatically handling overdue orders using RabbitMQ.
 
----
-
-## 1. Sơ đồ Tuần tự (Sequence Diagram)
+## 1. Sequence Diagram
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Khách hàng
+    actor User as Customer
     participant FE as Frontend (React)
     participant OS as Order Service
     participant PS as Product Service
@@ -17,72 +15,77 @@ sequenceDiagram
     participant MQ as RabbitMQ
     participant VNPay as VNPay Gateway
 
-    User->>FE: Chọn VNPAY & Bấm "Thanh toán"
+    User->>FE: Select VNPAY & Click "Pay"
     FE->>OS: POST /api/v1/orders/checkout
     
     rect rgb(240, 248, 255)
-        Note right of OS: 1. Khởi tạo Đơn hàng
-        OS->>PS: Yêu cầu giữ chỗ (Reserve Stock)
-        OS->>OS: Lưu Database (Status: PENDING_UNPAID)
-        OS->>MQ: Gửi Message Hẹn giờ (TTL: 10 phút)
+        Note right of OS: 1. Initiate Order
+        OS->>PS: Request stock lock (Reserve Stock)
+        OS->>OS: Save to Database (Status: PENDING_UNPAID)
+        OS->>MQ: Send Scheduled Message (TTL: 10 mins)
     end
     
-    OS-->>FE: Trả về URL thanh toán VNPay (Kèm IP Client)
-    FE->>VNPay: Redirect khách hàng
-    User->>VNPay: Nhập thông tin thẻ và OTP
+    OS-->>FE: Return VNPay payment URL (with Client IP)
+    FE->>VNPay: Redirect customer
+    User->>VNPay: Enter card info and OTP
 
     rect rgb(230, 255, 230)
-        Note right of VNPay: 2. Webhook IPN (Phòng thủ 3 lớp)
+        Note right of VNPay: 2. Webhook IPN (3-Layer Defense)
         VNPay->>OS: GET /orders/vnpay-ipn
-        OS->>OS: Lớp 1: Verify Checksum (HMAC SHA512)
-        OS->>OS: Lớp 2: Check Idempotency (Status == PENDING?)
-        OS->>OS: Lớp 3: Lưu DB (TransactionNo của VNPay)
-        OS->>OS: Cập nhật Order (Status: PROCESSING)
-        OS->>CS: Gọi nội bộ: Xóa giỏ hàng
-        OS-->>VNPay: Trả về HTTP 200 (RspCode: "00")
+        OS->>OS: Layer 1: Verify Checksum (HMAC SHA512)
+        OS->>OS: Layer 2: Check Idempotency (Status == PENDING?)
+        OS->>OS: Layer 3: Save to DB (VNPay TransactionNo)
+        OS->>OS: Update Order (Status: PROCESSING)
+        OS->>CS: Internal call: Clear cart
+        OS-->>VNPay: Return HTTP 200 (RspCode: "00")
     end
 
-    VNPay->>FE: Redirect khách về /payment-result
-    FE->>OS: Lấy trạng thái mới nhất (GET /history)
-    FE-->>User: Hiển thị "Thành công"
+    VNPay->>FE: Redirect customer to /payment-result
+    FE->>OS: Fetch latest status (GET /history)
+    FE-->>User: Display "Success"
 
     rect rgb(255, 240, 240)
-        Note right of MQ: 3. Cơ chế Timeout (Saga)
-        MQ-->>OS: Sau 10 phút không thanh toán
-        OS->>OS: Đổi Status Order -> CANCELLED
-        OS->>PS: Gọi nội bộ: Hoàn lại tồn kho
+        Note right of MQ: 3. Timeout Mechanism (Saga)
+        MQ-->>OS: After 10 mins without payment
+        OS->>OS: Change Order Status -> CANCELLED
+        OS->>PS: Internal call: Restore inventory
     end
 ```
+### 2. Details
 
-### 2. Chi tiết 
+#### Initiate Order
 
-#### Khởi tạo Đơn hàng (Initiate Order)
 * **Endpoint:** `POST /api/v1/orders/checkout`
-* **Xử lý nội bộ:** * Gọi sang `Product Service` để khóa số lượng sản phẩm (Reserve Stock).
-  * Trạng thái đơn hàng: `PENDING_UNPAID`. Giỏ hàng (`Cart`) **chưa bị xóa**.
-  * Extract IP thật của Client (bỏ qua proxy/gateway) để đính kèm vào payload gửi VNPay.
-  * Bắn event vào **RabbitMQ** với thời gian sống (TTL) 10 phút.
+* **Internal Processing:** * Call `Product Service` to lock the product quantity (Reserve Stock).
+    * Order status: `PENDING_UNPAID`. The shopping cart (`Cart`) is **not yet cleared**.
+    * Extract the real Client IP (bypassing proxy/gateway) to attach to the VNPay payload.
+    * Publish an event to **RabbitMQ** with a Time-To-Live (TTL) of 10 minutes.
 
-#### Chuyển hướng và Thanh toán
-* Backend trả về `paymentUrl`, Frontend Redirect người dùng sang cổng thanh toán VNPay.
-* VNPay xử lý các vấn đề liên quan đến việc nhập thẻ và xác thực OTP.
+#### Redirect and Payment
 
-#### Webhook IPN 
-API public để VNPay gọi ngược lại báo kết quả (`GET /api/v1/orders/vnpay-ipn`).
+* Backend returns `paymentUrl`, Frontend redirects the user to the VNPay payment gateway.
+* VNPay handles issues related to card entry and OTP verification.
 
-1. **Lớp 1 - Bảo mật Checksum:** * Thu thập 100% tham số VNPay trả về bằng cấu trúc dữ liệu động (`Map<String, String>`).
-   * Loại bỏ các trường chữ ký, sắp xếp Alphabet, nối chuỗi và băm bằng thuật toán `HMAC SHA512` cùng `Secret Key`.
-   * So sánh kết quả với `vnp_SecureHash`. Lỗi sẽ bị hệ thống trả về với mã lỗi `97 - Invalid Checksum`.
-2. **Lớp 2 - Tính lũy đẳng (Idempotency):**
-   * Truy vấn trạng thái đơn hàng hiện tại. Nếu đơn hàng **không còn** ở trạng thái `PENDING_UNPAID` (nghĩa là đã xử lý thành công trước đó, hoặc đã bị hủy), hệ thống lập tức bỏ qua IPN này và trả về mã lỗi `02 - Order already confirmed`. Điều này chống lại hiện tượng VNPay spam gọi lại khi mạng lag, đảm bảo an toàn cho luồng trừ kho.
-3. **Lớp 3 - Cập nhật Database:**
-   * Sử dụng trực tiếp `vnp_TransactionNo` (Mã tham chiếu của ngân hàng) làm `TransactionCode` để lưu vào Database, phục vụ cho nghiệp vụ đối soát và hoàn tiền.
-   * Đổi trạng thái bảng `orders` thành `PROCESSING`.
-   * Gọi qua `Cart Service` để xóa sạch giỏ hàng của User.
+#### Webhook IPN
 
-#### Timeout bằng Message Broker
-Trong trường hợp khách hàng tắt trình duyệt, hủy thanh toán hoặc thẻ không đủ tiền (Đơn hàng kẹt ở `PENDING_UNPAID`):
+Public API for VNPay to call back and report the result (`GET /api/v1/orders/vnpay-ipn`).
 
-* Sau 10 phút, message trong RabbitMQ hết hạn và rớt vào **Dead Letter Exchange (DLX)**.
-* Hệ thống bắt lại message này, tự động chuyển trạng thái đơn hàng thành `CANCELLED`.
-* Kích hoạt luồng bù trừ (Compensation Transaction), gọi sang `Product Service` trả lại tồn kho (Increase Stock).
+1. **Layer 1 - Checksum Security:** * Collect 100% of the parameters returned by VNPay using a dynamic data structure (`Map<String, String>`).
+    * Remove signature fields, sort alphabetically, concatenate the string, and hash it using the `HMAC SHA512` algorithm with the `Secret Key`.
+    * Compare the result with `vnp_SecureHash`. Errors will be returned by the system with error code `97 - Invalid Checksum`.
+
+2. **Layer 2 - Idempotency:**
+    * Query the current order status. If the order is **no longer** in the `PENDING_UNPAID` status (meaning it was successfully processed previously, or cancelled), the system immediately ignores this IPN and returns error code `02 - Order already confirmed`. This prevents VNPay from spamming callbacks during network lag, ensuring safety for the inventory deduction flow.
+
+3. **Layer 3 - Database Update:**
+    * Use `vnp_TransactionNo` (Bank reference code) directly as the `TransactionCode` to save into the Database, serving reconciliation and refund operations.
+    * Change the `orders` table status to `PROCESSING`.
+    * Call `Cart Service` to clear the User's shopping cart.
+
+#### Timeout via Message Broker
+
+In case the customer closes the browser, cancels the payment, or the card has insufficient funds (Order is stuck at `PENDING_UNPAID`):
+
+* After 10 minutes, the message in RabbitMQ expires and falls into the **Dead Letter Exchange (DLX)**.
+* The system catches this message and automatically changes the order status to `CANCELLED`.
+* Triggers the Compensation Transaction flow, calling `Product Service` to restore inventory (Increase Stock).
